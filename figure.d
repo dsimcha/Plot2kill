@@ -141,7 +141,7 @@ private:
             return;
         }
 
-        auto rect = Rect(leftMargin,
+        auto rect = PlotRect(leftMargin,
             topMargin / 4, this.plotWidth, topMargin * 3 / 4);
         auto format = TextAlignment.Center;
         drawText(title, titleFont, getColor(0, 0, 0), rect, format);
@@ -153,7 +153,7 @@ private:
         }
 
         immutable textSize = measureText(xLabel, xLabelFont);
-        auto rect = Rect(leftMargin, this.height - textSize.height - 5,
+        auto rect = PlotRect(leftMargin, this.height - textSize.height - 5,
             this.width - leftMargin - rightMargin, textSize.height);
 
         auto format = TextAlignment.Center;
@@ -176,7 +176,7 @@ private:
         } else {
             immutable textSize = measureText(yLabel, yLabelFont);
             immutable margin = (plotHeight - textSize.width) / 2 + topMargin;
-            auto rect = Rect(10, margin, textSize.height, textSize.width);
+            auto rect = PlotRect(10, margin, textSize.height, textSize.width);
 
             drawRotatedText(yLabel,
                 yLabelFont, getColor(0, 0, 0), rect, TextAlignment.Center);
@@ -188,16 +188,16 @@ private:
             auto pen = getPen(line.lineColor, line.lineWidth);
             scope(exit) doneWith(pen);
 
-            auto start = Point(toPixelsX(line.x1), toPixelsY(line.y1));
-            auto end = Point(toPixelsX(line.x2), toPixelsY(line.y2));
+            auto start = PlotPoint(toPixelsX(line.x1), toPixelsY(line.y1));
+            auto end = PlotPoint(toPixelsX(line.x2), toPixelsY(line.y2));
             drawClippedLine(pen, start, end);
         }
     }
 
     void drawAxes() {
-        immutable origin = Point(toPixelsX(leftLim), toPixelsY(lowerLim));
-        immutable topLeft = Point(origin.x, toPixelsY(upperLim));
-        immutable bottomRight = Point(toPixelsX(rightLim), origin.y);
+        immutable origin = PlotPoint(toPixelsX(leftLim), toPixelsY(lowerLim));
+        immutable topLeft = PlotPoint(origin.x, toPixelsY(upperLim));
+        immutable bottomRight = PlotPoint(toPixelsX(rightLim), origin.y);
 
         drawLine(axesPen, origin, topLeft);
         drawLine(axesPen, origin, bottomRight);
@@ -215,14 +215,14 @@ private:
         immutable wherePixels = toPixelsX(where);
         drawLine(
             axesPen,
-            Point(wherePixels, this.height - bottomMargin),
-            Point(wherePixels, this.height - bottomMargin + tickPixels)
+            PlotPoint(wherePixels, this.height - bottomMargin),
+            PlotPoint(wherePixels, this.height - bottomMargin + tickPixels)
         );
 
         if(verticalGrid) {
             drawLine(gridPen,
-                Point(wherePixels, topMargin),
-                Point(wherePixels, this.height - bottomMargin));
+                PlotPoint(wherePixels, topMargin),
+                PlotPoint(wherePixels, this.height - bottomMargin));
         }
 
         if(axesFont == Font.init) {
@@ -232,7 +232,7 @@ private:
         auto format = TextAlignment.Center;
 
         immutable textSize = measureText(text, axesFont, format);
-        auto rect = Rect(wherePixels - textSize.width / 2,
+        auto rect = PlotRect(wherePixels - textSize.width / 2,
             this.height - bottomMargin  + tickPixels,
             textSize.width,
             textSize.height
@@ -245,8 +245,8 @@ private:
         immutable wherePixels = this.height - toPixelsY(where);
         drawLine(
             axesPen,
-            Point(leftMargin, this.height - wherePixels),
-            Point(leftMargin - tickPixels, this.height - wherePixels)
+            PlotPoint(leftMargin, this.height - wherePixels),
+            PlotPoint(leftMargin - tickPixels, this.height - wherePixels)
         );
 
         if(axesFont == Font.init) {
@@ -256,14 +256,14 @@ private:
         if(horizontalGrid) {
             drawLine(
                 gridPen,
-                Point(leftMargin, this.height - wherePixels),
-                Point(this.width - rightMargin, this.height - wherePixels));
+                PlotPoint(leftMargin, this.height - wherePixels),
+                PlotPoint(this.width - rightMargin, this.height - wherePixels));
         }
 
         auto format = TextAlignment.Right;
 
         immutable textSize = measureText(text, axesFont, format);
-        auto rect = Rect(
+        auto rect = PlotRect(
             leftMargin - textSize.width - tickPixels - 2,
             this.height - wherePixels - textSize.height / 2,
             textSize.width,
@@ -410,7 +410,7 @@ public:
         return lower <= num && num <= upper;
     }
 
-    bool clipLine(ref int x1, ref int y1, ref int x2, ref int y2) {
+    bool clipLine(ref double x1, ref double y1, ref double x2, ref double y2) {
         immutable topPixel = topMargin;
         immutable bottomPixel = this.height - bottomMargin;
         immutable leftPixel = leftMargin;
@@ -454,30 +454,30 @@ public:
             return true;
         }
 
-        immutable slope = (y2 - y1) / cast(double) (x2 - x1);
+        immutable slope = (y2 - y1) / (x2 - x1);
         enum tol = 0;  // Compensate for rounding error.
 
-        void fixX(ref int x, ref int y) {
+        void fixX(ref double x, ref double y) {
             if(x < leftPixel) {
                 immutable diff = leftPixel - x;
                 x = leftPixel;
-                y = roundTo!int(diff * slope + y);
+                y = diff * slope + y;
             } else if(x > rightPixel) {
                 immutable diff = rightPixel - x;
                 x = rightPixel;
-                y = roundTo!int(diff * slope + y);
+                y = diff * slope + y;
             }
         }
 
-        void fixY(ref int x, ref int y) {
+        void fixY(ref double x, ref double y) {
             if(y < topPixel) {
                 immutable diff = topPixel - y;
                 y = topPixel;
-                x = roundTo!int(diff / slope + x);
+                x = diff / slope + x;
             } else if(y > bottomPixel) {
                 immutable diff = bottomPixel - y;
                 y = bottomPixel;
-                x = roundTo!int(diff / slope + x);;
+                x = diff / slope + x;
             }
         }
         fixX(x1, y1);
@@ -516,22 +516,22 @@ public:
         fillClippedRectangle(brush, rect.x, rect.y, rect.width, rect.height);
     }
 
-    void drawClippedLine(Pen pen, Point from, Point to) {
-        int x1 = from.x;
-        int y1 = from.y;
-        int x2 = to.x;
-        int y2 = to.y;
+    void drawClippedLine(Pen pen, PlotPoint from, PlotPoint to) {
+        auto x1 = from.x;
+        auto y1 = from.y;
+        auto x2 = to.x;
+        auto y2 = to.y;
         immutable shouldDraw = clipLine(x1, y1, x2, y2);
 
         if(!shouldDraw) {
             return;
         }
 
-        drawLine(pen, Point(x1, y1), Point(x2, y2));
+        drawLine(pen, PlotPoint(x1, y1), PlotPoint(x2, y2));
     }
 
     void drawClippedText(string text, Font font,
-        Color pointColor, Rect rect) {
+        Color pointColor, PlotRect rect) {
 
         // To avoid cutting points off of scatter plots, this function only
         // checks whether the center of each point is on the graph.  Therefore,
@@ -924,8 +924,8 @@ protected:
             auto pen = form.getPen(getColor(0, 0, 0), 2);
             // Draw line across figure at the zero point.
             form.drawClippedLine(pen,
-                Point(toPixelsX(leftLim), zeroPoint),
-                Point(toPixelsX(rightLim), zeroPoint)
+                PlotPoint(toPixelsX(leftLim), zeroPoint),
+                PlotPoint(toPixelsX(rightLim), zeroPoint)
             );
         }
     }
@@ -1921,7 +1921,7 @@ class ScatterPlot : Plot {
         foreach(i; 0..x.length) {
             immutable curX = toPixelsX(x[i]);
             immutable curY = toPixelsY(y[i]);
-            auto rect = Rect(
+            auto rect = PlotRect(
                 curX - rectWidth / 2,
                 curY - rectHeight / 2,
                 rectWidth,
@@ -2081,7 +2081,6 @@ class LineGraph : Plot {
             }
         }
 
-        doErrors(0);
         auto pen = form.getPen(lineColor, lineWidth);
         scope(exit) doneWith(pen);
 
@@ -2089,9 +2088,12 @@ class LineGraph : Plot {
             immutable curX = toPixelsX(x[i]);
             immutable curY = toPixelsY(y[i]);
 
-            form.drawClippedLine(pen, Point(lastX, lastY), Point(curX, curY));
+            form.drawClippedLine(pen, PlotPoint(lastX, lastY), PlotPoint(curX, curY));
             lastX = curX;
             lastY = curY;
+        }
+
+        foreach(i; 0..x.length) {
             doErrors(i);
         }
     }
@@ -2606,8 +2608,8 @@ class QQPlot : ScatterPlot {
 
             form.drawClippedLine(
                 pen,
-                Point(lowerX, lowerY),
-                Point(upperX, upperY)
+                PlotPoint(lowerX, lowerY),
+                PlotPoint(upperX, upperY)
             );
         }
     }

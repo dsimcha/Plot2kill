@@ -1,5 +1,6 @@
 /* Utility functions, mixins, constants and public imports of generally useful
- * Phobos modules.  These are not meant to be part of the public API.
+ * Phobos modules.  These are not meant to be part of the public API,
+ * at least for now.
  *
  * Copyright (C) 2010 David Simcha
  *
@@ -99,10 +100,10 @@ package enum drawErrorMixin = q{
         immutable horizLeft = toPixelsX(x - width / 2);
         immutable horizRight = toPixelsX(x + width / 2);
 
-        form.drawClippedLine(pen, Point(xPixels, fromPixels),
-                             Point(xPixels, toPixels));
-        form.drawClippedLine(pen, Point(horizLeft, toPixels),
-                             Point(horizRight, toPixels));
+        form.drawClippedLine(pen, PlotPoint(xPixels, fromPixels),
+                             PlotPoint(xPixels, toPixels));
+        form.drawClippedLine(pen, PlotPoint(horizLeft, toPixels),
+                             PlotPoint(horizRight, toPixels));
     }
 };
 
@@ -133,6 +134,23 @@ double[] toDoubleArray(R)(R range) {
     }
 
     return ret;
+}
+
+package struct PlotPoint {
+    double x;
+    double y;
+}
+
+package struct PlotRect {
+    double x;
+    double y;
+    double width;
+    double height;
+}
+
+package struct PlotSize {
+    double width;
+    double height;
 }
 
 // This can't be in the base class mixin because having return this; return

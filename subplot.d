@@ -384,7 +384,7 @@ private:
             bottomMargin = textSize.height + labelMargin;
             drawText(
                 xLabel, xLabelFont, getColor(0, 0, 0),
-                Rect(0,
+                PlotRect(0,
                     this.height - bottomMargin,
                     this.width, textSize.height),
                 TextAlignment.Center
@@ -398,7 +398,7 @@ private:
             topMargin = textSize.height + labelMargin;
             drawText(
                 title, titleFont, getColor(0, 0, 0),
-                Rect(0, labelMargin, width, topMargin - labelMargin),
+                PlotRect(0, labelMargin, width, topMargin - labelMargin),
                 TextAlignment.Center
             );
         } else {
@@ -410,7 +410,7 @@ private:
             leftMargin = textSize.height + labelMargin;
             drawRotatedText(
                 yLabel, yLabelFont, getColor(0, 0, 0),
-                Rect(labelMargin, 0, textSize.height, this.height),
+                PlotRect(labelMargin, 0, textSize.height, this.height),
                 TextAlignment.Center
             );
         }

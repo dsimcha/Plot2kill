@@ -152,8 +152,6 @@ void doneWith(T)(T garbage) {
     }
 }
 
-alias Rect PlotRect;
-
 /**The base class for both FigureBase and Subplot.  Holds common functionality
  * like saving and text drawing.
  */
@@ -162,6 +160,10 @@ abstract class PlotDrawingBase : DrawingArea {
 
 private:
     enum ubyteMax = cast(double) ubyte.max;
+
+    // See drawLine() for an explanation of these variables.
+    PlotPoint lastLineEnd;
+    Color lastColor;
 
 protected:
     Context context;
@@ -173,25 +175,40 @@ public:
     // and could change at any time.  Some of it will eventually be exposed,
     // but I'm not sure how yet.
 
-    final void drawLine(Pen pen, int startX, int startY, int endX, int endY) {
-        context.save();
-        scope(exit) context.restore();
+    final void drawLine
+    (Pen pen, double startX, double startY, double endX, double endY) {
+        /* HACK ALERT:  The front end to this library is designed for each line
+         * to be drawn as a discrete unit, but for line joining purposes,
+         * liens need to be drawn in a single path in Cairo.  Therefore,
+         * we save the path across calls and check to see whether we're
+         * continuing a previous line.  All other functions that interact
+         * with Cairo must save/restore because of this.
+         */
+        if(startX != lastLineEnd.x
+            || startY != lastLineEnd.y || lastColor != pen.color) {
+            context.newPath();
+        }
+
+        lastLineEnd = PlotPoint(endX, endY);
+        lastColor = pen.color;
 
         auto c = pen.color;
         context.setSourceRgb(c.r / ubyteMax, c.g / ubyteMax, c.b / ubyteMax);
         context.setLineWidth(pen.lineWidth);
         context.moveTo(startX + xOffset, startY + yOffset);
         context.lineTo(endX + xOffset, endY + yOffset);
-        context.stroke();
+        context.strokePreserve();
     }
 
-    final void drawLine(Pen pen, Point start, Point end) {
+    final void drawLine(Pen pen, PlotPoint start, PlotPoint end) {
         this.drawLine(pen, start.x, start.y, end.x, end.y);
     }
 
-    final void drawRectangle(Pen pen, int x, int y, int width, int height) {
+    final void drawRectangle
+    (Pen pen, double x, double y, double width, double height) {
         context.save();
         scope(exit) context.restore();
+        context.newPath();
 
         auto c = pen.color;
         context.setSourceRgb(c.r / ubyteMax, c.g / ubyteMax, c.b / ubyteMax);
@@ -204,9 +221,11 @@ public:
         this.drawRectangle(pen, r.x, r.y, width, height);
     }
 
-    final void fillRectangle(Brush brush, int x, int y, int width, int height) {
+    final void fillRectangle
+    (Brush brush, double x, double y, double width, double height) {
         context.save();
         scope(exit) context.restore();
+        context.newPath();
 
         auto c = brush.color;
         enum ubyteMax = cast(double) ubyte.max;
@@ -228,6 +247,7 @@ public:
     ) {
         context.save();
         scope(exit) context.restore();
+        context.newPath();
 
         drawTextCurrentContext(text, font, pointColor, rect, alignment);
     }
@@ -350,7 +370,7 @@ public:
         string text,
         Font font,
         Color pointColor,
-        Rect rect
+        PlotRect rect
     ) {
         drawRotatedText(text, font, pointColor, rect, TextAlignment.Left);
     }
