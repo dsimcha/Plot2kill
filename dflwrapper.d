@@ -103,7 +103,7 @@ private:
     TextFormat[3] textAlignments;
 
     void resizeEvent(Control c, EventArgs ea) {
-        drawPlot();
+        drawImpl();
     }
 
     // Used only for default plot window.  Resizes this if parent resized.
@@ -119,7 +119,7 @@ private:
 
         this.size = Size(parent.width - horizontalBorderSize,
                          parent.height - verticalBorderSize);
-        drawPlot();
+        drawImpl();
     }
 
 protected:
@@ -230,7 +230,7 @@ public:
     }
 
 
-    abstract void drawPlot() {
+    abstract void drawImpl() {
         this.setBounds(0, 0, width, height);
         graphics = new MemoryGraphics(this.width, this.height);
     }
@@ -242,22 +242,22 @@ public:
 
     /**Draws the plots on this Figure.  Useful for attaching to parent.*/
     void drawPlotEvent(Control c, EventArgs ea) {
-        drawPlot();
+        drawImpl();
     }
 
-    void drawToRaster(MemoryGraphics graphics) {
-        drawToRaster(graphics, this.width, this.height);
+    void drawTo(MemoryGraphics graphics) {
+        drawTo(graphics, this.width, this.height);
     }
 
     // Weird function overloading bugs.  This should be removed.
-    void drawToRaster(MemoryGraphics graphics, int width, int height) {
-        return drawToRaster(graphics, Rect(0, 0, width, height));
+    void drawTo(MemoryGraphics graphics, int width, int height) {
+        return drawTo(graphics, Rect(0, 0, width, height));
     }
 
     // Allows drawing at an offset from the origin.
-    void drawToRaster(MemoryGraphics graphics, Rect whereToDraw) {
+    void drawTo(MemoryGraphics graphics, Rect whereToDraw) {
         // Save the default class-level values, make the values passed in the
-        // class-level values, call drawPlot(), then restore the default values.
+        // class-level values, call drawImpl(), then restore the default values.
         auto oldGraphics = this.graphics;
         auto oldWidth = this._width;
         auto oldHeight = this._height;
@@ -277,7 +277,7 @@ public:
         this._height = whereToDraw.height;
         this.xOffset = whereToDraw.x;
         this.yOffset = whereToDraw.y;
-        drawPlot();
+        drawImpl();
     }
 
     /**Draw and display the figure as a main form.  This is useful in

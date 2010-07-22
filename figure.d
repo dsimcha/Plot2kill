@@ -137,7 +137,7 @@ private:
     mixin(toPixels);
 
     void drawTitle() {
-        if(titleFont is null) {
+        if(titleFont == Font.init) {
             return;
         }
 
@@ -148,7 +148,7 @@ private:
     }
 
     void drawXlabel() {
-        if(xLabelFont is null) {
+        if(xLabelFont == Font.init) {
             return;
         }
 
@@ -161,7 +161,7 @@ private:
     }
 
     void drawYlabel() {
-        if(yLabelFont is null || yLabel.length == 0) {
+        if(yLabelFont == Font.init || yLabel.length == 0) {
             return;
         }
 
@@ -225,7 +225,7 @@ private:
                 Point(wherePixels, this.height - bottomMargin));
         }
 
-        if(axesFont is null) {
+        if(axesFont == Font.init) {
             return;
         }
 
@@ -249,7 +249,7 @@ private:
             Point(leftMargin - tickPixels, this.height - wherePixels)
         );
 
-        if(axesFont is null) {
+        if(axesFont == Font.init) {
             return;
         }
 
@@ -336,25 +336,25 @@ private:
     }
 
     void nullFontsToDefaults() {
-        if(titleFont is null) {
+        if(titleFont == Font.init) {
             titleFont = getFont(plot2kill.util.defaultFont, 14);
         }
-        if(xLabelFont is null) {
+        if(xLabelFont == Font.init) {
             xLabelFont = getFont(plot2kill.util.defaultFont, 14);
         }
 
         version(noRotatedText) {
-            if(yLabelFont is null) {
+            if(yLabelFont == Font.init) {
                 // For now the default should be a fixed-width font to make the
                 // columnar text look half decent.
                 yLabelFont = getFont("Courier New", 12);
             }
         } else {
-            if(yLabelFont is null) {
+            if(yLabelFont == Font.init) {
                 yLabelFont = getFont(plot2kill.util.defaultFont, 14);
             }
         }
-        if(axesFont is null) {
+        if(axesFont == Font.init) {
             axesFont = getFont(plot2kill.util.defaultFont, 10);
         }
     }
@@ -674,8 +674,7 @@ public:
     }
 
     /**Draw the plot but don't display it on screen.*/
-    override void drawPlot() {
-        super.drawPlot();
+    override void drawImpl() {
         axesPen = getPen(getColor(0, 0, 0), 2);
         scope(exit) doneWith(axesPen);
 

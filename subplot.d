@@ -101,17 +101,17 @@ private:
     }
 
     void nullFontsToDefaults() {
-        if(titleFont is null) {
+        if(titleFont == Font.init) {
             titleFont = getFont(plot2kill.util.defaultFont, 18);
             assert(titleFont);
         }
 
-        if(xLabelFont is null) {
+        if(xLabelFont == Font.init) {
             xLabelFont = getFont(plot2kill.util.defaultFont, 14);
             assert(xLabelFont);
         }
 
-        if(yLabelFont is null) {
+        if(yLabelFont == Font.init) {
             yLabelFont = getFont(plot2kill.util.defaultFont, 14);
             assert(yLabelFont);
         }
@@ -359,27 +359,23 @@ private:
     }
 
     void nullFontsToDefaults() {
-        if(titleFont is null) {
+        if(titleFont == Font.init) {
             titleFont = getFont(plot2kill.util.defaultFont, 18);
-            assert(titleFont);
+            assert(titleFont != Font.init);
         }
 
-        if(xLabelFont is null) {
+        if(xLabelFont == Font.init) {
             xLabelFont = getFont(plot2kill.util.defaultFont, 14);
-            assert(xLabelFont);
+            assert(xLabelFont != Font.init);
         }
 
-        if(yLabelFont is null) {
+        if(yLabelFont == Font.init) {
             yLabelFont = getFont(plot2kill.util.defaultFont, 14);
-            assert(yLabelFont);
+            assert(yLabelFont != Font.init);
         }
     }
 
     void drawLabels() {
-        if(textPen is null) {
-            textPen = new GC(drawable);
-        }
-
         // The amount of margin that's left before the labels are even drawn.
         enum labelMargin = 10;
         nullFontsToDefaults();
@@ -430,21 +426,9 @@ private:
 
 
     void drawFigureZoomedOut() {
-        if(!getParent() && !drawable) {
-            return;
-        }
+        assert(context !is null);
 
-        if(!drawable) {
-            realize();
-            drawable = getWindow();
-        }
-
-
-        auto gc = new GC(drawable);
-        scope(exit) doneWith(gc);
-
-        gc.setForeground(new Color(255, 255, 255));
-        drawable.drawRectangle(gc, 1, 0, 0, width, height);
+        fillRectangle(getBrush(getColor(255, 255, 255)), 0, 0, width, height);
         drawLabels();
 
         immutable figWidth = getFigWidth();
@@ -459,7 +443,7 @@ private:
                 immutable xPos = colIndex * figWidth + leftMargin + xOffset;
                 immutable yPos = rowIndex * figHeight + topMargin + yOffset;
                 auto whereToDraw = Rect(xPos, yPos, figWidth, figHeight);
-                fig.drawToRaster(drawable, whereToDraw);
+                fig.drawTo(context, whereToDraw);
             }
         }
 
@@ -471,23 +455,17 @@ private:
     // Bugs:  Doesn't work.
     void drawFigureZoomedIn() {
         // Should always have been initialized by now:
-        assert(drawable !is null);
+        assert(context !is null);
         assert(zoomedFigure !is null);
 
-        zoomedFigure.drawToRaster
-            (drawable, Rect(xOffset, yOffset, width, height));
+        zoomedFigure.drawTo
+            (context, Rect(xOffset, yOffset, width, height));
         this.showAll();
     }
 
     bool onDrawingExpose(GdkEventExpose* event, Widget drawingArea) {
-        drawFigure();
+        draw();
         return true;
-    }
-
-    void windowResized(GtkRequisition* req, Widget w) {
-        if(req.width != this.width || req.height != this.height) {
-            drawFigure();
-        }
     }
 
     Figure getFigureAt(double x, double y) {
@@ -517,11 +495,11 @@ private:
             auto toZoom = getFigureAt(press.x, press.y);
             if(toZoom !is null) {
                 zoomedFigure = toZoom;
-                drawFigureZoomedIn();
+                draw();
             }
         } else {
             zoomedFigure = null;
-            drawFigureZoomedOut();
+            draw();
         }
 
         return true;
@@ -542,13 +520,18 @@ protected:
         this.nColumns = nColumns;
 
         figs = new Figure[][](nRows, nColumns);
-        this.addOnSizeRequest(&windowResized);
         this.addOnExpose(&onDrawingExpose);
         this.addOnButtonPress(&zoomEvent);
     }
 
-    override void draw() {
-        drawFigure();
+    override void drawImpl() {
+        assert(context);
+
+        if(zoomedFigure is null) {
+            drawFigureZoomedOut();
+        } else {
+            drawFigureZoomedIn();
+        }
     }
 
 public:
@@ -582,35 +565,5 @@ public:
         return addFigure(fig, row, col);
     }
 
-
-    /**Draw the figure, but don't display it.*/
-    void drawFigure() {
-        if(zoomedFigure is null) {
-            drawFigureZoomedOut();
-        } else {
-            drawFigureZoomedIn();
-        }
-    }
-
-    /**Draw the plot to an explicit drawable, at the given size.  Note that
-     * the depth must be 24 bits.*/
-    void drawFigure(Drawable drawable, int width, int height) {
-        // Save the default class-level values, make the values passed in the
-        // class-level values, call drawPlot(), then restore the default values.
-        auto oldDrawable = this.drawable;
-        auto oldWidth = this._width;
-        auto oldHeight = this._height;
-
-        scope(exit) {
-            this.drawable = oldDrawable;
-            this._height = oldHeight;
-            this._width = oldWidth;
-        }
-
-        this.drawable = drawable;
-        this._width = width;
-        this._height = height;
-        drawFigure();
-    }
 }
 }

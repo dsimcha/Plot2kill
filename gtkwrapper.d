@@ -47,35 +47,26 @@ import plot2kill.util;
 import gdk.Color, gdk.GC, gtk.Widget, gdk.Drawable, gtk.DrawingArea,
     gtk.MainWindow, gtk.Main, gdk.Window, gtk.Container, gtk.Window,
     gdk.Pixbuf, gdk.Pixmap, gtkc.all, gtk.FileChooserDialog, gtk.Dialog,
-    gtk.FileFilter;
+    gtk.FileFilter, gobject.ObjectG, cairo.Context, cairo.FontFace,
+    gtkc.cairotypes;
 
 /**GTK's implementation of a color object.*/
-class Color : gdk.Color.Color {
-    final ubyte r()  {
-        int v24 = getValue24();
-        return (cast(ubyte*)&v24)[2];
-    }
-
-    final ubyte g()  {
-        int v24 = getValue24();
-        return (cast(ubyte*)&v24)[1];
-    }
-
-    final ubyte b()  {
-        int v24 = getValue24();
-        return (cast(ubyte*)&v24)[0];
-    }
-
-    this(ubyte r, ubyte g, ubyte b) {
-        super(r, g, b);
-    }
+struct Color {
+    ubyte r;
+    ubyte g;
+    ubyte b;
 }
 
-/**GTK's GC, or GraphicsContext object.*/
-alias gdk.GC.GC Pen;
+/**Holds context for drawing lines.*/
+struct Pen {
+    Color color;
+    double lineWidth;
+}
 
-/**Again, GTK's GC, or GraphicsContext object.*/
-alias gdk.GC.GC Brush;
+/**Holds context for drawing rectangles.*/
+struct Brush {
+    Color color;
+}
 
 ///
 struct Point {
@@ -110,20 +101,28 @@ struct Size {
     int height;
 }
 
-/**GTK's font class.*/
-alias gdk.Font.Font Font;
+/**Holds font information.*/
+alias cairo.FontFace.FontFace font;
 
 /**Get a color in a GUI framework-agnostic way.*/
 Color getColor(ubyte red, ubyte green, ubyte blue) {
-    return new Color(red, green, blue);
+    return Color(red, green, blue);
 }
 
 /**Get a font in a GUI framework-agnostic way.*/
-Font getFont(string fontName, int size) {
-    auto fontNameComplicated =
-        text("-*-", fontName, "-*-r-*--", size, "-*-*-*-*-*-*-*");
-    auto ret = Font.load(fontNameComplicated);
-    return ret;
+struct Font {
+    FontFace face;
+    double size;
+}
+
+Font getFont(string fontName, double size) {
+    return Font(
+        Context.toyFontFaceCreate(
+            fontName,
+            cairo_font_slant_t.NORMAL,
+            cairo_font_weight_t.NORMAL
+        ), size
+    );
 }
 
 
@@ -153,71 +152,19 @@ void doneWith(T)(T garbage) {
     }
 }
 
+alias Rect PlotRect;
+
 /**The base class for both FigureBase and Subplot.  Holds common functionality
  * like saving and text drawing.
  */
 abstract class PlotDrawingBase : DrawingArea {
     mixin(GuiAgnosticBaseMixin);
 
+private:
+    enum ubyteMax = cast(double) ubyte.max;
+
 protected:
-    Drawable drawable;
-
-    Pen textPen;
-
-    ~this() {
-        doneWith(textPen);
-    }
-
-    void drawTextImpl(
-        Drawable localDrawable,
-        string text,
-        Font font,
-        Color pointColor,
-        Rect rect,
-        TextAlignment alignment
-    ) {
-        textPen.setForeground(pointColor);
-
-        if(text.length == 0 || font is null) {
-            return;
-        }
-
-        immutable w = font.textWidth(text, text.length);
-        immutable diff = rect.width - w;
-        if(diff <= 0) {  // Draw left aligned, do the best we can.
-            return drawTextImpl
-                (localDrawable, text, font, pointColor, rect);
-        }
-
-        immutable newX = (alignment == TextAlignment.Center) ?
-                          (diff / 2 + rect.x) :
-                          (alignment == TextAlignment.Right) ?
-                          (diff + rect.x) :
-                           0;
-        rect = Rect(newX, rect.y, w, rect.height);
-        drawTextImpl(localDrawable, text, font, pointColor, rect);
-    }
-
-    void drawTextImpl(
-        Drawable localDrawable,
-        string text,
-        Font font,
-        Color pointColor,
-        Rect rect
-    ) {
-        textPen.setForeground(pointColor);
-
-        if(text.length == 0 || font is null) {
-            return;
-        }
-        // GTK uses the baseline as the y coordinate.  We use the vertical
-        // orign.  This correction is purely based on trial and error, but
-        // looks dead on in practice.  This doesn't, however, mean that
-        // it will work in every corner case.
-        rect.y += font.textHeight(text, text.length) * 3 / 4;
-
-        localDrawable.drawText(font, textPen, rect.x, rect.y, text, text.length);
-    }
+    Context context;
 
 public:
     // All this stuff that's public but not documented would be package at least
@@ -227,9 +174,15 @@ public:
     // but I'm not sure how yet.
 
     final void drawLine(Pen pen, int startX, int startY, int endX, int endY) {
-        drawable.drawLine(pen,
-            startX + xOffset, startY + yOffset,
-            endX + xOffset, endY + yOffset);
+        context.save();
+        scope(exit) context.restore();
+
+        auto c = pen.color;
+        context.setSourceRgb(c.r / ubyteMax, c.g / ubyteMax, c.b / ubyteMax);
+        context.setLineWidth(pen.lineWidth);
+        context.moveTo(startX + xOffset, startY + yOffset);
+        context.lineTo(endX + xOffset, endY + yOffset);
+        context.stroke();
     }
 
     final void drawLine(Pen pen, Point start, Point end) {
@@ -237,9 +190,14 @@ public:
     }
 
     final void drawRectangle(Pen pen, int x, int y, int width, int height) {
-        // The zero means don't fill the rectangle.  To draw filled rectangles
-        // in Plot2Kill, we use fillRectangle().
-        drawable.drawRectangle(pen, 0, x + xOffset, y + yOffset, width, height);
+        context.save();
+        scope(exit) context.restore();
+
+        auto c = pen.color;
+        context.setSourceRgb(c.r / ubyteMax, c.g / ubyteMax, c.b / ubyteMax);
+        context.setLineWidth(pen.lineWidth);
+        context.rectangle(x + xOffset, y + yOffset, width, height);
+        context.stroke();
     }
 
     final void drawRectangle(Pen pen, Rect r) {
@@ -247,9 +205,14 @@ public:
     }
 
     final void fillRectangle(Brush brush, int x, int y, int width, int height) {
-        // The one means don't fill the rectangle.  To draw unfilled rectangles
-        // in Plot2Kill, we use drawRectangle().
-        drawable.drawRectangle(brush, 1, x + xOffset, y + yOffset, width, height);
+        context.save();
+        scope(exit) context.restore();
+
+        auto c = brush.color;
+        enum ubyteMax = cast(double) ubyte.max;
+        context.setSourceRgb(c.r / ubyteMax, c.g / ubyteMax, c.b / ubyteMax);
+        context.rectangle(x + xOffset, y + yOffset, width, height);
+        context.fill();
     }
 
     final void fillRectangle(Brush brush, Rect r) {
@@ -260,68 +223,127 @@ public:
         string text,
         Font font,
         Color pointColor,
-        Rect rect,
+        PlotRect rect,
         TextAlignment alignment
     ) {
-        auto offsetRect = Rect(rect.x + xOffset, rect.y + yOffset,
-            rect.width, rect.height);
-        drawTextImpl(
-            drawable, text, font, pointColor, offsetRect, alignment);
+        context.save();
+        scope(exit) context.restore();
+
+        drawTextCurrentContext(text, font, pointColor, rect, alignment);
+    }
+
+    final void drawTextCurrentContext(
+        string text,
+        Font font,
+        Color pointColor,
+        PlotRect rect,
+        TextAlignment alignment
+    ) {
+        alias rect r;  // save typing
+        Size measurements = measureText(text, font);
+        if(measurements.width > rect.width) {
+            alignment = TextAlignment.Left;
+        }
+
+        if(alignment == TextAlignment.Left) {
+            r = PlotRect(
+                r.x,
+                r.y + measurements.height,
+                r.width,
+                r.height
+            );
+        } else if(alignment == TextAlignment.Center) {
+            r = PlotRect(
+                r.x + (r.width - measurements.width) / 2,
+                r.y + measurements.height,
+                r.width, r.height
+            );
+        } else if(alignment == TextAlignment.Right) {
+            r = PlotRect(
+                r.x + (r.width - measurements.width),
+                r.y + measurements.height,
+                r.width, r.height
+            );
+        } else {
+            assert(0);
+        }
+
+        //context.rectangle(r.x, r.y - measurements.height, r.width, r.height);
+        //context.clip();
+        context.setFontSize(font.size);
+        context.setFontFace(font.face);
+
+        alias pointColor c;
+        context.setSourceRgb(c.r / ubyteMax, c.g / ubyteMax, c.b / ubyteMax);
+
+        context.setLineWidth(0.5);
+        context.moveTo(r.x + xOffset, r.y + yOffset);
+        context.textPath(text);
+        context.fill();
     }
 
     final void drawText(
         string text,
         Font font,
         Color pointColor,
-        Rect rect
+        PlotRect rect
     ) {
-        auto offsetRect = Rect(rect.x + xOffset, rect.y + yOffset,
-            rect.width, rect.height);
-        drawTextImpl(drawable, text, font, pointColor, offsetRect);
+        drawText(text, font, pointColor, rect, TextAlignment.Left);
     }
 
     final void drawRotatedText(
         string text,
         Font font,
         Color pointColor,
-        Rect rect,
+        PlotRect rect,
         TextAlignment alignment
     ) {
-        // Temporary kludge to prevent text from being cut off.  I have
-        // no idea what the root cause of this is, but it seems like
-        // the rendering of text gets cut off a few pixels short of
-        // the edge of the Drawable and/or the measurements are a
-        // few pixels off.
-        //
-        // TODO:  Remove this quick and dirty fix and put in a proper one.
-        version(Posix) {
-            rect.x -= 3;
-            rect.height += 6;
+        context.save();
+        scope(exit) context.restore;
+        context.newPath();
+
+        alias rect r;  // save typing
+        Size measurements = measureText(text, font);
+        immutable slack  = rect.height - measurements.width;
+        if(slack < 0) {
+            alignment = TextAlignment.Left;
         }
 
-        auto pixmap = new Pixmap(null, rect.height, rect.width, 24);
-
-        // Make the pixmap's background white.
-        textPen.setForeground(getColor(255, 255, 255));
-        pixmap.drawRectangle(textPen, 1, 0, 0, rect.height, rect.width);
-        scope(exit) doneWith(pixmap);
-
-        auto pixmapRect = Rect(0, 0, rect.height, rect.width);
-
-        // Again this is the anti-text being cut off kludge.
-        version(Posix) {
-            pixmapRect.y += 3;
-            pixmapRect.height -= 3;
+        if(alignment == TextAlignment.Left) {
+            r = PlotRect(
+                r.x + r.width,
+                r.y + r.height,
+                r.width,
+                r.height
+            );
+        } else if(alignment == TextAlignment.Center) {
+            r = PlotRect(
+                r.x + r.width,
+                r.y + r.height - slack / 2,
+                r.width, r.height
+            );
+        } else if(alignment == TextAlignment.Right) {
+            r = PlotRect(
+                r.x + r.width,
+                r.y + r.height - slack,
+                r.width, r.height
+            );
+        } else {
+            assert(0);
         }
+        //context.rectangle(r.x, r.y - measurements.height, r.width, r.height);
+        //context.clip();
+        context.setFontSize(font.size);
+        context.setFontFace(font.face);
 
-        drawTextImpl(pixmap, text, font, pointColor, pixmapRect, alignment);
+        alias pointColor c;
+        context.setSourceRgb(c.r / ubyteMax, c.g / ubyteMax, c.b / ubyteMax);
 
-        auto pixbuf = new Pixbuf(pixmap, 0, 0, rect.height, rect.width);
-        scope(exit) doneWith(pixbuf);
-
-        pixbuf = pixbuf.rotateSimple(cast(GdkPixbufRotation) 90);
-        pixbuf.renderToDrawable(this.drawable, textPen, 0, 0, rect.x + xOffset,
-            rect.y + yOffset, rect.width, rect.height, cast(GdkRgbDither) 0, 0, 0);
+        context.setLineWidth(0.5);
+        context.moveTo(r.x + xOffset, r.y + yOffset);
+        context.rotate(PI * 1.5);
+        context.textPath(text);
+        context.fill();
     }
 
     final void drawRotatedText(
@@ -333,56 +355,40 @@ public:
         drawRotatedText(text, font, pointColor, rect, TextAlignment.Left);
     }
 
-
+    // BUGS:  Ignores maxWidth.
     final Size measureText
     (string text, Font font, int maxWidth, TextAlignment alignment) {
-        if(text.length == 0) {
-            return Size(0, 0);
-        }
-
-        return Size(1, 1);
+        return measureText(text, font);
     }
 
     // BUGS:  Ignores maxWidth.
     final Size measureText(string text, Font font, int maxWidth) {
-        if(text.length == 0) {
-            return Size(0, 0);
-        }
-
         return measureText(text, font);
 
     }
 
     final Size measureText(string text, Font font) {
-        if(text.length == 0) {
-            return Size(0, 0);
-        }
+        context.save();
+        scope(exit) context.restore();
 
-        return Size(
-            font.textWidth(text, text.length),
-            font.textHeight(text, text.length)
-        );
+        context.setLineWidth(1);
+        context.setFontSize(font.size);
+        context.setFontFace(font.face);
+        cairo_text_extents_t ext;
+
+        context.textExtents(text, &ext);
+        return Size(roundTo!int(ext.width), roundTo!int(ext.height));
     }
 
     // TODO:  Add support for stuff other than solid brushes.
     /*Get a brush in a GUI framework-agnostic way.*/
-    final Brush getBrush(Color color) {
-        auto ret = new GC(drawable);
-        ret.setForeground(color);
-        return ret;
+    static Brush getBrush(Color color) {
+        return Brush(color);
     }
 
     /*Get a pen in a GUI framework-agnostic way.*/
-    final Pen getPen(Color color, int width = 1) {
-        auto ret = new GC(drawable);
-        ret.setForeground(color);
-        ret.setLineAttributes(
-            width, cast(GdkLineStyle) 0, cast(GdkCapStyle) 0, cast(GdkJoinStyle) 0);
-//            GdkLineStyle.GDK_LINE_SOLID,  // Eventually need to expose this.
-//            GdkCapStyle.GDK_CAP_BUTT,    // Normal lines.
-//            GdkJoinStyle.GDK_JOIN_MITER  // Who cares?
-//        );
-        return ret;
+    static Pen getPen(Color color, int width = 1) {
+        return Pen(color, width);
     }
 
     final int width()  {
@@ -411,36 +417,57 @@ public:
         }
     }
 
-    abstract void draw() { }
+    private bool realized;
+    final void draw() {
+        bool ownContext;
+        if(this.context is null) {
+            ownContext = true;
+            enforce(getParent() !is null, this.classinfo.name);
 
-    void drawToRaster(Drawable drawable) {
-        drawToRaster(drawable, this.width, this.height);
+            if(!realized) {
+                this.realize();
+                realized = true;
+            }
+            this.context = new Context(getWindow());
+        }
+
+        drawImpl();
+        if(ownContext) {
+            context.destroy();
+        }
+        this.context = null;
+    }
+
+    abstract void drawImpl() {}
+
+    void drawTo(Context context) {
+        drawTo(context, this.width, this.height);
     }
 
     // Weird function overloading bugs.  This should be removed.
-    void drawToRaster(Drawable drawable, int width, int height) {
-        return drawToRaster(drawable, Rect(0, 0, width, height));
+    void drawTo(Context context, int width, int height) {
+        return drawTo(context, Rect(0, 0, width, height));
     }
 
     // Allows drawing at an offset from the origin.
-    void drawToRaster(Drawable drawable, Rect whereToDraw) {
+    void drawTo(Context context, Rect whereToDraw) {
         // Save the default class-level values, make the values passed in the
-        // class-level values, call drawPlot(), then restore the default values.
-        auto oldDrawable = this.drawable;
+        // class-level values, call drawImpl(), then restore the default values.
+        auto oldContext = this.context;
         auto oldWidth = this._width;
         auto oldHeight = this._height;
         auto oldXoffset = this.xOffset;
         auto oldYoffset = this.yOffset;
 
         scope(exit) {
-            this.drawable = oldDrawable;
+            this.context = oldContext;
             this._height = oldHeight;
             this._width = oldWidth;
             this.xOffset = oldXoffset;
             this.yOffset = oldYoffset;
         }
 
-        this.drawable = drawable;
+        this.context = context;
         this._width = whereToDraw.width;
         this._height = whereToDraw.height;
         this.xOffset = whereToDraw.x;
@@ -458,6 +485,7 @@ public:
      */
     void saveToFile
     (string filename, string type, int width = 0, int height = 0) {
+        // TODO:  Use Cairo to save this stuff.
         if(width <= 0 || height <= 0) {
             width = this.width;
             height = this.height;
@@ -466,7 +494,10 @@ public:
         auto pixmap = new Pixmap(null, width, height, 24);
         scope(exit) doneWith(pixmap);
 
-        drawToRaster(pixmap, width, height);
+        auto c = new Context(pixmap);
+        scope(exit) c.destroy();
+
+        drawTo(c, width, height);
         auto pixbuf = new Pixbuf(pixmap, 0, 0, width, height);
         scope(exit) doneWith(pixbuf);
 
@@ -508,7 +539,7 @@ private:
     enum horizontalBorderSize = 0;
 
     bool onDrawingExpose(GdkEventExpose* event, Widget drawingArea) {
-        drawPlot();
+        draw();
         return true;
     }
 
@@ -523,22 +554,8 @@ protected:
 public:
 // Begin "real" public API.
 
-    override void draw() {
-        drawPlot();
-    }
-
     /**Draw the plot to the internal drawable.*/
-    abstract void drawPlot() {
-        if(this.drawable is null) {
-            enforce(getParent() !is null);
-            this.realize();
-            this.drawable = getWindow();
-        }
-
-        if(textPen is null) {
-            textPen = new GC(drawable);
-        }
-    }
+    abstract void drawImpl() {}
 
     final void doneDrawing() {}
 }
@@ -606,10 +623,10 @@ if(is(Base == gtk.Window.Window) || is(Base == gtk.MainWindow.MainWindow)) {
         this(PlotDrawingBase fig) {
             super("Plot Window.  Right-click to save plot.");
             this.fig = fig;
+            this.add(fig);
             this.resize(fig.width, fig.height);
             this.setUsize(400, 300);
 
-            this.add(fig);
             this.addOnButtonPress(&clickEvent);
             fig.addOnSizeAllocate(&fig.parentSizeChanged);
             fig.showAll();
