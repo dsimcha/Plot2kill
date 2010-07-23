@@ -335,7 +335,7 @@ import gtk.MainWindow, gtk.Label, gtk.Main, gtk.Widget, gtk.VBox, gtk.HBox,
  * sub.show();
  * ---
  */
-class Subplot : PlotDrawingBase {
+class Subplot : FigureBase {
 
     mixin(labelStuff);
 
@@ -343,9 +343,9 @@ private:
     uint nRows;
     uint nColumns;
 
-    int topMargin;
-    int bottomMargin;
-    int leftMargin;
+    double topMargin;
+    double bottomMargin;
+    double leftMargin;
     enum int rightMargin = 30;  // No label here so it can be an enum.
 
     Figure[][] figs;
@@ -416,12 +416,16 @@ private:
         }
     }
 
-    int getFigWidth() {
-        return (this.width - rightMargin - leftMargin) / nColumns;
+    // Gets the figure width assuming this has a width of width.
+    // The explicit parameter is necessary because this can be called
+    // at times other than during drawing.
+    double getFigWidth(double width) {
+        return (width - rightMargin - leftMargin) / nColumns;
     }
 
-    int getFigHeight() {
-        return (this.height - topMargin - bottomMargin) / nRows;
+    // Ditto.
+    double getFigHeight(double height) {
+        return (height - topMargin - bottomMargin) / nRows;
     }
 
 
@@ -431,8 +435,8 @@ private:
         fillRectangle(getBrush(getColor(255, 255, 255)), 0, 0, width, height);
         drawLabels();
 
-        immutable figWidth = getFigWidth();
-        immutable figHeight = getFigHeight();
+        immutable figWidth = getFigWidth(this.width);
+        immutable figHeight = getFigHeight(this.height);
 
         foreach(rowIndex, row; figs) {
             foreach(colIndex, fig; row) {
@@ -442,7 +446,7 @@ private:
 
                 immutable xPos = colIndex * figWidth + leftMargin + xOffset;
                 immutable yPos = rowIndex * figHeight + topMargin + yOffset;
-                auto whereToDraw = Rect(xPos, yPos, figWidth, figHeight);
+                auto whereToDraw = PlotRect(xPos, yPos, figWidth, figHeight);
                 fig.drawTo(context, whereToDraw);
             }
         }
@@ -452,57 +456,12 @@ private:
         drawLabels();
     }
 
-    // Bugs:  Doesn't work.
     void drawFigureZoomedIn() {
-        // Should always have been initialized by now:
         assert(context !is null);
         assert(zoomedFigure !is null);
 
         zoomedFigure.drawTo
-            (context, Rect(xOffset, yOffset, width, height));
-        this.showAll();
-    }
-
-    bool onDrawingExpose(GdkEventExpose* event, Widget drawingArea) {
-        draw();
-        return true;
-    }
-
-    Figure getFigureAt(double x, double y) {
-        if(x < leftMargin || y < topMargin) {
-            return null;
-        }
-
-        immutable figWidth = getFigWidth();
-        immutable figHeight = getFigHeight();
-
-
-        immutable xCoord = to!int((x - leftMargin) / figWidth);
-        immutable yCoord = to!int((y - topMargin) / figHeight);
-        if(xCoord < nColumns && yCoord < nRows) {
-            return figs[yCoord][xCoord];
-        } else {
-            return null;
-        }
-    }
-
-    bool zoomEvent(GdkEventButton* press, Widget widget) {
-        if(press.type != GdkEventType.DOUBLE_BUTTON_PRESS || press.button != 1) {
-            return false;
-        }
-
-        if(zoomedFigure is null) {
-            auto toZoom = getFigureAt(press.x, press.y);
-            if(toZoom !is null) {
-                zoomedFigure = toZoom;
-                draw();
-            }
-        } else {
-            zoomedFigure = null;
-            draw();
-        }
-
-        return true;
+            (context, PlotRect(xOffset, yOffset, width, height));
     }
 
 protected:
@@ -514,14 +473,10 @@ protected:
             to!string(nColumns) ~ "."
         );
 
-        this.setUsize(800, 600);
-
         this.nRows = nRows;
         this.nColumns = nColumns;
 
         figs = new Figure[][](nRows, nColumns);
-        this.addOnExpose(&onDrawingExpose);
-        this.addOnButtonPress(&zoomEvent);
     }
 
     override void drawImpl() {
@@ -535,6 +490,23 @@ protected:
     }
 
 public:
+
+
+    override int defaultWindowWidth() {
+        return 1024;
+    }
+
+    override int defaultWindowHeight() {
+        return 768;
+    }
+
+    override int minWindowWidth() {
+        return 800;
+    }
+
+    override int minWindowHeight() {
+        return 600;
+    }
 
     /**Create an instance with nRows rows and nColumns columns.*/
     static Subplot opCall(uint nRows, uint nColumns) {
@@ -554,7 +526,6 @@ public:
             "x", nColumns, " Subplot."));
 
         figs[row][col] = fig;
-        fig.addOnButtonPress(&zoomEvent);
         fig = null;
 
         return this;
@@ -565,5 +536,87 @@ public:
         return addFigure(fig, row, col);
     }
 
+    ///
+    override FigureWidget toWidget() {
+        return new SubplotWidget(this);
+    }
+}
+
+/* This class is an implementation detail.  All public code should use it as
+ * its base class.  It's very tightly coupled to the Subplot class because
+ * it contains bejavior that doesn't make any sense to expose in a more
+ * transparent way.
+ */
+package class SubplotWidget : FigureWidget {
+
+    this(Subplot sp) {
+        super(sp);
+        this.addOnButtonPress(&zoomEvent);
+        //this.addOnExpose(&onDrawingExpose);
+        this.setSizeRequest(800, 600);
+    }
+
+    /* Returns the FigureBase, downcast to a Subplot.  This is safe because our
+     * C'tor only accepts Subplots.
+     */
+    Subplot subplot() {
+        auto ret = cast(Subplot) figure;
+
+        // Safeguard in case this gets refactored and our assumptions break:
+        assert(ret);
+        return ret;
+    }
+
+//    bool onDrawingExpose(GdkEventExpose* event, Widget drawingArea) {
+//        draw();
+//        return true;
+//    }
+
+    Figure getFigureAt(double x, double y) {
+        auto sp = subplot();
+
+        with(sp) {
+            if(x < leftMargin || y < topMargin) {
+                return null;
+            }
+
+            immutable figWidth = getFigWidth(this.getWidth);
+            immutable figHeight = getFigHeight(this.getHeight);
+
+
+            immutable xCoord = to!int((x - leftMargin) / figWidth);
+            immutable yCoord = to!int((y - topMargin) / figHeight);
+            if(xCoord < nColumns && yCoord < nRows) {
+                return figs[yCoord][xCoord];
+            } else {
+                return null;
+            }
+        }
+    }
+
+    // Handles zooming in on double click.
+    bool zoomEvent(GdkEventButton* press, Widget widget) {
+        auto sp = subplot();
+
+        with(sp) {
+            if(press.type != GdkEventType.DOUBLE_BUTTON_PRESS
+               || press.button != 1) {
+                return false;
+            }
+
+            if(zoomedFigure is null) {
+                auto toZoom = getFigureAt(press.x, press.y);
+                if(toZoom !is null) {
+                    zoomedFigure = toZoom;
+                    draw();
+                }
+            } else {
+                zoomedFigure = null;
+                draw();
+            }
+
+            return true;
+        }
+    }
 }
 }

@@ -155,49 +155,59 @@ void doneWith(T)(T garbage) {
 /**The base class for both FigureBase and Subplot.  Holds common functionality
  * like saving and text drawing.
  */
-abstract class PlotDrawingBase : DrawingArea {
+abstract class FigureBase {
     mixin(GuiAgnosticBaseMixin);
 
 private:
     enum ubyteMax = cast(double) ubyte.max;
 
     // See drawLine() for an explanation of these variables.
-    PlotPoint lastLineEnd;
-    Color lastColor;
+    PlotPoint[2] lastLine;
+    Pen lastLinePen;
 
 protected:
+    // GTK reports the usable area as the size of the window, so these are 0.
+    enum horizontalBorderWidth = 0;
+    enum verticalBorderWidth = 0;
+
     Context context;
 
 public:
-    // All this stuff that's public but not documented would be package at least
-    // for now if package worked.  If you're a user of this lib and not a
-    // developer of it, please be advised that this stuff is in no way stable
-    // and could change at any time.  Some of it will eventually be exposed,
-    // but I'm not sure how yet.
+    // These are undocumented FOR A REASON:  They aren't part of the public
+    // API, but package is so broken it's not usable.  All this stuff w/o
+    // ddoc should only be messed with if you're a developer of this lib,
+    // not if you want to use it as a black box.
 
     final void drawLine
     (Pen pen, double startX, double startY, double endX, double endY) {
         /* HACK ALERT:  The front end to this library is designed for each line
          * to be drawn as a discrete unit, but for line joining purposes,
-         * liens need to be drawn in a single path in Cairo.  Therefore,
-         * we save the path across calls and check to see whether we're
-         * continuing a previous line.  All other functions that interact
-         * with Cairo must save/restore because of this.
+         * lines need to be drawn in a single path in Cairo.  Therefore,
+         * we save the last line drawn and draw it again if its end coincides
+         * with the current line's beginning.
          */
-        if(startX != lastLineEnd.x
-            || startY != lastLineEnd.y || lastColor != pen.color) {
-            context.newPath();
-        }
-
-        lastLineEnd = PlotPoint(endX, endY);
-        lastColor = pen.color;
+        context.save();
+        scope(exit) context.restore();
+        context.newPath();
 
         auto c = pen.color;
         context.setSourceRgb(c.r / ubyteMax, c.g / ubyteMax, c.b / ubyteMax);
         context.setLineWidth(pen.lineWidth);
-        context.moveTo(startX + xOffset, startY + yOffset);
+
+        if(lastLine[1] == PlotPoint(startX, startY) && lastLinePen == pen) {
+            // Redraw the last line.
+            context.moveTo(lastLine[0].x + xOffset, lastLine[0].y + yOffset);
+            context.lineTo(lastLine[1].x + xOffset, lastLine[1].y + yOffset);
+        } else {
+            context.moveTo(startX + xOffset, startY + yOffset);
+        }
+
+        lastLine[0] = PlotPoint(startX, startY);
+        lastLine[1] = PlotPoint(endX, endY);
+        lastLinePen = pen;
+
         context.lineTo(endX + xOffset, endY + yOffset);
-        context.strokePreserve();
+        context.stroke();
     }
 
     final void drawLine(Pen pen, PlotPoint start, PlotPoint end) {
@@ -260,7 +270,7 @@ public:
         TextAlignment alignment
     ) {
         alias rect r;  // save typing
-        Size measurements = measureText(text, font);
+        auto measurements = measureText(text, font);
         if(measurements.width > rect.width) {
             alignment = TextAlignment.Left;
         }
@@ -323,7 +333,7 @@ public:
         context.newPath();
 
         alias rect r;  // save typing
-        Size measurements = measureText(text, font);
+        auto measurements = measureText(text, font);
         immutable slack  = rect.height - measurements.width;
         if(slack < 0) {
             alignment = TextAlignment.Left;
@@ -376,18 +386,18 @@ public:
     }
 
     // BUGS:  Ignores maxWidth.
-    final Size measureText
-    (string text, Font font, int maxWidth, TextAlignment alignment) {
+    final PlotSize measureText
+    (string text, Font font, double maxWidth, TextAlignment alignment) {
         return measureText(text, font);
     }
 
     // BUGS:  Ignores maxWidth.
-    final Size measureText(string text, Font font, int maxWidth) {
+    final PlotSize measureText(string text, Font font, double maxWidth) {
         return measureText(text, font);
 
     }
 
-    final Size measureText(string text, Font font) {
+    final PlotSize measureText(string text, Font font) {
         context.save();
         scope(exit) context.restore();
 
@@ -397,7 +407,7 @@ public:
         cairo_text_extents_t ext;
 
         context.textExtents(text, &ext);
-        return Size(roundTo!int(ext.width), roundTo!int(ext.height));
+        return PlotSize(ext.width, ext.height);
     }
 
     // TODO:  Add support for stuff other than solid brushes.
@@ -411,51 +421,12 @@ public:
         return Pen(color, width);
     }
 
-    final int width()  {
-       if(_width > 0) {
-           return _width;
-       }
-
-       GtkRequisition req;
-       this.sizeRequest(req);
-       return req.width;
+    final double width()  {
+        return _width;
     }
 
-    final int height()  {
-       if(_height > 0) {
-           return _height;
-       }
-
-       GtkRequisition req;
-       this.sizeRequest(req);
-       return req.height;
-    }
-
-    void parentSizeChanged(GtkAllocation* alloc, Widget widget) {
-        if(this.width != alloc.width || this.height != alloc.height) {
-            this.setSizeRequest(alloc.width, alloc.height);
-        }
-    }
-
-    private bool realized;
-    final void draw() {
-        bool ownContext;
-        if(this.context is null) {
-            ownContext = true;
-            enforce(getParent() !is null, this.classinfo.name);
-
-            if(!realized) {
-                this.realize();
-                realized = true;
-            }
-            this.context = new Context(getWindow());
-        }
-
-        drawImpl();
-        if(ownContext) {
-            context.destroy();
-        }
-        this.context = null;
+    final double height()  {
+        return _height;
     }
 
     abstract void drawImpl() {}
@@ -464,13 +435,12 @@ public:
         drawTo(context, this.width, this.height);
     }
 
-    // Weird function overloading bugs.  This should be removed.
-    void drawTo(Context context, int width, int height) {
-        return drawTo(context, Rect(0, 0, width, height));
+    void drawTo(Context context, double width, double height) {
+        return drawTo(context, PlotRect(0, 0, width, height));
     }
 
     // Allows drawing at an offset from the origin.
-    void drawTo(Context context, Rect whereToDraw) {
+    void drawTo(Context context, PlotRect whereToDraw) {
         // Save the default class-level values, make the values passed in the
         // class-level values, call drawImpl(), then restore the default values.
         auto oldContext = this.context;
@@ -492,8 +462,14 @@ public:
         this._height = whereToDraw.height;
         this.xOffset = whereToDraw.x;
         this.yOffset = whereToDraw.y;
-        draw();
+        drawImpl();
     }
+
+    abstract int defaultWindowWidth();
+    abstract int defaultWindowHeight();
+    abstract int minWindowWidth();
+    abstract int minWindowHeight();
+
 
     /**Saves this figure to a file.  The file type can be either .png,
      * .jpg, .ico, .tiff, or .bmp.  width and height allow you to specify
@@ -507,8 +483,8 @@ public:
     (string filename, string type, int width = 0, int height = 0) {
         // TODO:  Use Cairo to save this stuff.
         if(width <= 0 || height <= 0) {
-            width = this.width;
-            height = this.height;
+            width = roundTo!int(this.width);
+            height = roundTo!int(this.height);
         }
 
         auto pixmap = new Pixmap(null, width, height, 24);
@@ -524,60 +500,85 @@ public:
         pixbuf.savev(filename, type, null, null);
     }
 
+    /**Creates a Widget that will have this object drawn to it.  This Widget
+     * can be displayed in a window.
+     */
+    FigureWidget toWidget() {
+        return new FigureWidget(this);
+    }
+
     /**Draw and display the figure as a main form.  This is useful in
      * otherwise console-based apps that want to display a few plots.
      * However, you can't have another main form up at the same time.
      */
     void showAsMain() {
-        auto mw = new DefaultPlotWindow!(MainWindow)(this);
+        auto mw = new DefaultPlotWindow!(MainWindow)(this.toWidget);
         Main.run();
     }
 
     /**Returns a default plot window with this figure in it.*/
     gtk.Window.Window getDefaultWindow() {
-        return new DefaultPlotWindow!(gtk.Window.Window)(this);
+        return new DefaultPlotWindow!(gtk.Window.Window)(this.toWidget);
     }
 }
 
 
-
-/**The GTK-specific parts of the Figure class.  These include wrappers around
- * the subset of drawing functionality used by Plot2Kill.
- *
- * In the GTK version of this lib, the Figure class can be used in two ways.
- * It can be used as a Widget and in this case will implicitly draw on itself,
- * or it can draw its plots to an arbitrary Drawable.  For now, a limitation
- * of this is that the arbitrary drawable must have the same depth as this
- * object's default Drawable, which is 24 bits.
+/**The default widget for displaying Figure and Subplot objects on screen.
+ * This class has no public constructor or static factory method because the
+ * proper way to instantiate this object is via the toWidget properties
+ * of FigureBase and Subplot.
  */
-class FigureBase : PlotDrawingBase {
+class FigureWidget : DrawingArea {
 private:
-    // Fudge factors for the space that window borders take up.  TODO:
-    // Figure out how to get the actual numbers and use them instead of these
-    // stupid fudge factors.
-    enum verticalBorderSize = 0;
-    enum horizontalBorderSize = 0;
+    FigureBase _figure;
+
+package:
+    this(FigureBase fig) {
+        super();
+        this._figure = fig;
+        this.addOnExpose(&onDrawingExpose);
+        this.setSizeRequest(400, 300);
+       // this.setSizeRequest(800, 600);  // Default size.
+    }
 
     bool onDrawingExpose(GdkEventExpose* event, Widget drawingArea) {
         draw();
         return true;
     }
 
-protected:
-    this() {
-        super();
-        this.addOnExpose(&onDrawingExpose);
-        this.setSizeRequest(800, 600);  // Default size.
+    void draw(double w, double h) {
+        enforce(getParent() !is null, this.classinfo.name);
+
+//        if(!realized) {
+//            this.realize();
+//            realized = true;
+//        }
+        auto context = new Context(getWindow());
+        scope(exit) doneWith(context);
+
+        figure.drawTo(context, w, h);
     }
 
-
 public:
-// Begin "real" public API.
+    /**Get the underlying FigureBase object.*/
+    final FigureBase figure() @property {
+        return _figure;
+    }
 
-    /**Draw the plot to the internal drawable.*/
-    abstract void drawImpl() {}
+    /**If set as an addOnSizeAllocate callback, this will resize this control
+     * to the size of its parent window when the parent window is resized.
+     */
+    void parentSizeChanged(GtkAllocation* alloc, Widget widget) {
+        if(this.getWidth != alloc.width || this.getHeight != alloc.height) {
+            this.setSizeRequest(alloc.width, alloc.height);
+        }
+    }
 
-    final void doneDrawing() {}
+    /**Draw the figure to the internal drawing area.*/
+    final void draw() {
+        draw(this.getWidth, this.getHeight);
+    }
+
 }
 
 /**Default plot window.  It's a subclass of either Window or MainWindow
@@ -589,7 +590,7 @@ if(is(Base == gtk.Window.Window) || is(Base == gtk.MainWindow.MainWindow)) {
     ///
     class DefaultPlotWindow : Base {
     private:
-        PlotDrawingBase fig;
+        FigureWidget widget;
 
         immutable string[4] saveTypes =
             ["*.png", "*.bmp", "*.tiff", "*.jpeg"];
@@ -608,7 +609,7 @@ if(is(Base == gtk.Window.Window) || is(Base == gtk.MainWindow.MainWindow)) {
                 string name = fc.getFilename();
                 auto fileType = fc.getFilter().getName();
 
-                fig.saveToFile(name, fileType);
+                widget.figure.saveToFile(name, fileType);
                 d.destroy();
             } else {
                 d.destroy();
@@ -640,17 +641,24 @@ if(is(Base == gtk.Window.Window) || is(Base == gtk.MainWindow.MainWindow)) {
 
     public:
         ///
-        this(PlotDrawingBase fig) {
+        this(FigureWidget widget) {
             super("Plot Window.  Right-click to save plot.");
-            this.fig = fig;
-            this.add(fig);
-            this.resize(fig.width, fig.height);
-            this.setUsize(400, 300);
+            this.widget = widget;
+            this.add(widget);
+            widget.setSizeRequest(
+                widget.figure.defaultWindowWidth,
+                widget.figure.defaultWindowHeight
+            );
+            this.resize(widget.getWidth, widget.getHeight);
+            this.setSizeRequest(
+                widget.figure.minWindowWidth,
+                widget.figure.minWindowHeight
+            );
 
             this.addOnButtonPress(&clickEvent);
-            fig.addOnSizeAllocate(&fig.parentSizeChanged);
-            fig.showAll();
-            fig.queueDraw();
+            widget.addOnSizeAllocate(&widget.parentSizeChanged);
+            widget.showAll();
+            widget.queueDraw();
             this.showAll();
         }
     }

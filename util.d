@@ -73,21 +73,21 @@ unittest {
 }
 
 package enum toPixels = q{
-    int toPixelsX(double inUnits) {
+    double toPixelsX(double inUnits) {
         immutable xRange = rightLim - leftLim;
         assert(xRange > 0);
 
         immutable fract = (inUnits - leftLim) / xRange;
-        immutable ret = roundTo!int(fract * plotWidth) + leftMargin;
+        immutable ret = (fract * plotWidth) + leftMargin;
         return ret;
     }
 
-    int toPixelsY(double inUnits) {
+    double toPixelsY(double inUnits) {
         immutable yRange = upperLim - lowerLim;
         assert(yRange > 0);
 
         immutable fract = (upperLim - inUnits) / yRange;
-        immutable ret = roundTo!int(fract * plotHeight) + topMargin;
+        immutable ret = (fract * plotHeight) + topMargin;
         return ret;
     }
 };
@@ -238,12 +238,12 @@ public:
 enum string GuiAgnosticBaseMixin = q{
 protected:
     // These control where on the drawing object the figure is drawn.
-    int xOffset;
-    int yOffset;
+    double xOffset = 0;
+    double yOffset = 0;
 
     // These control the width and height that we assume we're drawing to.
-    int _width;
-    int _height;
+    double _width = 0;
+    double _height = 0;
 
 // Make sure that unless the users of this mixin declare otherwise,
 // accessibility is the usual default.

@@ -64,7 +64,7 @@ void main(string[] args)
         Histogram(randArray!rNorm(5_000, 0, 1), 100, -5, 5, OutOfBounds.Ignore)
     );
     auto histLine = ContinuousFunction(
-        parametrize!normalPDF(0, 1), -5, 5, 50);
+        parametrize!normalPDF(0, 1), -5, 5);
     histRand.scaleDistributionFunction(histLine);
     histLine.lineColor = getColor(255, 0, 0);
     histLine.lineWidth = 3;
@@ -88,7 +88,7 @@ void main(string[] args)
        surf.flush();
        surf.finish();
     }}
-   // hist.showAsMain();
+    hist.showAsMain();
 
     auto errs = [0.1, 0.2, 0.3, 0.4];
     auto linesWithErrors =

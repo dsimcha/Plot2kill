@@ -71,15 +71,15 @@ private:
     bool userSetXAxis = false;
     bool userSetYAxis = false;
 
-    int topMargin;
-    int bottomMargin;
-    int leftMargin;
-    int rightMargin = 30;
+    double topMargin;
+    double bottomMargin;
+    double leftMargin;
+    double rightMargin = 30;
 
     enum tickPixels = 10;
-    int xTickLabelWidth;
-    int yTickLabelWidth;
-    int tickLabelHeight;
+    double xTickLabelWidth;
+    double yTickLabelWidth;
+    double tickLabelHeight;
 
     Pen axesPen;
     Pen gridPen;
@@ -88,7 +88,7 @@ private:
     Font _axesFont;
 
     void fixTickSizes() {
-        void fixTickLabelSize(ref int toFix, string[] axisText) {
+        void fixTickLabelSize(ref double toFix, string[] axisText) {
             toFix = 0;
             foreach(lbl; axisText) {
                 auto lblSize = measureText(lbl, axesFont);
@@ -126,11 +126,11 @@ private:
     Plot[] plotData;
     FigureLine[] extraLines;
 
-    final int plotWidth()  {
+    final double plotWidth()  {
         return this.width - leftMargin - rightMargin;
     }
 
-    final int plotHeight()  {
+    final double plotHeight()  {
         return this.height - topMargin - bottomMargin;
     }
 
@@ -278,8 +278,8 @@ private:
         double upper,
         ref double[] axisLocations,
         ref string[] axisText,
-        int axisSize,
-        ref int labelSize,
+        double axisSize,
+        ref double labelSize,
     )
     in {
         assert(upper > lower, std.conv.text(lower, '\t', upper));
@@ -377,14 +377,31 @@ protected:
     }
 
 public:
+
+    override int defaultWindowWidth() {
+        return 800;
+    }
+
+    override int defaultWindowHeight() {
+        return 600;
+    }
+
+    override int minWindowWidth() {
+        return 400;
+    }
+
+    override int minWindowHeight() {
+        return 300;
+    }
+
     // These drawing commands aren't documented for now b/c they're subject
     // to change.
 
     // Returns whether any part of the rectangle is on screen.
-    bool clipRectangle(ref int x, ref int y, ref int width, ref int height) {
+    bool clipRectangle(ref double x, ref double y, ref double width, ref double height) {
         // Do clipping.
-        int bottom = y + height;
-        int right = x + width;
+        auto bottom = y + height;
+        auto right = x + width;
         if(x < leftMargin) {
             x = leftMargin;
         }
@@ -500,19 +517,21 @@ public:
                between(y2, topPixel - tol, bottomPixel + tol);
     }
 
-    void drawClippedRectangle(Pen pen, int x, int y, int width, int height) {
+    void drawClippedRectangle
+    (Pen pen, double x, double y, double width, double height) {
         if(clipRectangle(x, y, width, height)) {
             drawRectangle(pen, x, y, width, height);
         }
     }
 
-    void fillClippedRectangle(Brush brush, int x, int y, int width, int height) {
+    void fillClippedRectangle
+    (Brush brush, double x, double y, double width, double height) {
         if(clipRectangle(x, y, width, height)) {
             fillRectangle(brush, x, y, width, height);
         }
     }
 
-    void fillClippedRectangle(Brush brush, Rect rect) {
+    void fillClippedRectangle(Brush brush, PlotRect rect) {
         fillClippedRectangle(brush, rect.x, rect.y, rect.width, rect.height);
     }
 
@@ -715,8 +734,6 @@ public:
         drawAxes();
         drawTitle();
         drawXlabel();
-
-        doneDrawing();
     }
 
     version(none) {
@@ -773,7 +790,7 @@ public:
     /* Draw the plot on Figure using the rectangular area described by the
      * integer parameters.
      */
-    abstract void drawPlot(Figure, int, int, int, int);
+    abstract void drawPlot(Figure, double, double, double, double);
 
     /**Convenience method that instantiates a Figure object with this plot.
      * Useful for creating single-plot figures w/o a lot of boilerplate.
@@ -874,10 +891,10 @@ private:
 protected:
     void drawPlot(
         Figure form,
-        int leftMargin,
-        int topMargin,
-        int plotWidth,
-        int plotHeight
+        double leftMargin,
+        double topMargin,
+        double plotWidth,
+        double plotHeight
     ) {
 
         mixin(toPixels);
@@ -1100,10 +1117,10 @@ class Histogram : Plot {
 
     protected void drawPlot(
         Figure form,
-        int leftMargin,
-        int topMargin,
-        int plotWidth,
-        int plotHeight
+        double leftMargin,
+        double topMargin,
+        double plotWidth,
+        double plotHeight
     ) {
         uint[] binCounts = this.binCounts;
         if(isCumulative) {
@@ -1126,15 +1143,15 @@ class Histogram : Plot {
         scope(exit) doneWith(brush);
 
         double horizPos = leftMargin;
-        int lastPosPixels = leftMargin;
+        double lastPosPixels = leftMargin;
         foreach(i, count; binCounts) {
             // Most of the complexity of this loop body is for making the bin
             // boundaries accurate in the context of having to round to
             // pixels.
-            immutable barHeight = roundTo!int(multiplier * count);
+            immutable barHeight = multiplier * count;
             immutable horizPixels = min(roundTo!int(horizPos), lastPosPixels);
             immutable stopAt = horizPos + binWidth;
-            immutable thisBinWidth = max(1, roundTo!int(stopAt - horizPixels));
+            immutable thisBinWidth = max(1.0, stopAt - horizPixels);
 
             form.fillClippedRectangle(brush, lastPosPixels,
                 bottom - barHeight, thisBinWidth, barHeight);
@@ -1377,10 +1394,10 @@ class FrequencyHistogram : Plot {
 
     protected void drawPlot(
         Figure form,
-        int leftMargin,
-        int topMargin,
-        int plotWidth,
-        int plotHeight
+        double leftMargin,
+        double topMargin,
+        double plotWidth,
+        double plotHeight
     ) {
 
         mixin(toPixels);
@@ -1401,7 +1418,7 @@ class FrequencyHistogram : Plot {
             immutable leftPixels = toPixelsX(xStart);
             immutable rightPixels = toPixelsX(xStart + width);
             immutable widthPixels = rightPixels - leftPixels;
-            immutable heightPixels = roundTo!int(height * multiplier);
+            immutable heightPixels = height * multiplier;
 
             immutable startAt = zeroPoint - heightPixels;
 
@@ -1623,10 +1640,10 @@ class HeatMap : Plot {
 
     protected override void drawPlot(
         Figure form,
-        int leftMargin,
-        int topMargin,
-        int plotWidth,
-        int plotHeight
+        double leftMargin,
+        double topMargin,
+        double plotWidth,
+        double plotHeight
     ) {
         immutable cellWidth = (rightLim - leftLim) / nCols;
         immutable cellHeight = (upperLim - lowerLim) / nRows;
@@ -1636,18 +1653,18 @@ class HeatMap : Plot {
         }
 
         mixin(toPixels);
-        int lastRowStop = toPixelsY(upperLim);
+        double lastRowStop = toPixelsY(upperLim);
         foreach(row; 0..nRows) {
             immutable rowStop = toPixelsY(upperLim - cellHeight * (row + 1));
             scope(exit) lastRowStop = rowStop;
 
-            int lastColStop = toPixelsX(leftLim);
+            double lastColStop = toPixelsX(leftLim);
             foreach(col; 0..nCols) {
                 immutable colStop = toPixelsX(cellWidth * (col + 1) + leftLim);
                 scope(exit) lastColStop = colStop;
 
                 auto color = getCellColor(values[row][col]);
-                auto rect = Rect(lastColStop, lastRowStop,
+                auto rect = PlotRect(lastColStop, lastRowStop,
                     colStop - lastColStop, rowStop - lastRowStop);
 
                 auto brush = form.getBrush(color);
@@ -1893,10 +1910,10 @@ class ScatterPlot : Plot {
 
     override void drawPlot(
         Figure form,
-        int leftMargin,
-        int topMargin,
-        int plotWidth,
-        int plotHeight
+        double leftMargin,
+        double topMargin,
+        double plotWidth,
+        double plotHeight
     ) {
         enforce(x.length == y.length);  // Should have already been checked.
 
@@ -2045,10 +2062,10 @@ class LineGraph : Plot {
 
     protected void drawPlot(
         Figure form,
-        int leftMargin,
-        int topMargin,
-        int plotWidth,
-        int plotHeight
+        double leftMargin,
+        double topMargin,
+        double plotWidth,
+        double plotHeight
     ) {
         enforce(x.length == y.length);  // Should have already been checked.
 
@@ -2063,8 +2080,8 @@ class LineGraph : Plot {
         auto errorPen = form.getPen(getColor(0, 0, 0));
         scope(exit) doneWith(errorPen);
 
-        int lastX = toPixelsX(x[0]);
-        int lastY = toPixelsY(y[0]);
+        double lastX = toPixelsX(x[0]);
+        double lastY = toPixelsY(y[0]);
 
         void doErrors(uint index) {
             if(lowerErrors.length) {
@@ -2585,10 +2602,10 @@ class QQPlot : ScatterPlot {
 
     protected void drawPlot(
         Figure form,
-        int leftMargin,
-        int topMargin,
-        int plotWidth,
-        int plotHeight
+        double leftMargin,
+        double topMargin,
+        double plotWidth,
+        double plotHeight
     ) {
         super.drawPlot(
             form, leftMargin, topMargin, plotWidth, plotHeight
