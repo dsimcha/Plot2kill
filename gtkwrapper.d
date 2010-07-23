@@ -49,7 +49,7 @@ import gdk.Color, gdk.GC, gtk.Widget, gdk.Drawable, gtk.DrawingArea,
     gdk.Pixbuf, gdk.Pixmap, gtkc.all, gtk.FileChooserDialog, gtk.Dialog,
     gtk.FileFilter, gobject.ObjectG, cairo.Context, cairo.FontFace,
     gtkc.cairotypes, cairo.PdfSurface, cairo.SvgSurface,
-    cairo.PostScriptSurface, cairo.Surface;
+    cairo.PostScriptSurface, cairo.Surface, cairo.ImageSurface;
 
 /**GTK's implementation of a color object.*/
 struct Color {
@@ -166,7 +166,8 @@ private:
     PlotPoint[2] lastLine;
     Pen lastLinePen;
 
-    void saveImplRaster(string filename, string type, double width, double height) {
+    void saveImplPixmap
+    (string filename, string type, double width, double height) {
         int w = roundTo!int(width);
         int h = roundTo!int(height);
 
@@ -183,7 +184,8 @@ private:
         pixbuf.savev(filename, type, null, null);
     }
 
-    void saveImplVector(string filename, string type, double width, double height) {
+    void saveImplSurface
+    (string filename, string type, double width, double height) {
         Surface surf;
         switch(type) {
             case "pdf":
@@ -195,6 +197,10 @@ private:
             case "svg":
                 surf = SvgSurface.create(filename, width, height);
                 break;
+            case "png":
+                surf = ImageSurface.create(cairo_format_t.RGB24,
+                    roundTo!int(width), roundTo!int(height));
+                break;
             default:
                 enforce(0, "Invalid file format:  " ~ type);
         }
@@ -204,7 +210,15 @@ private:
 
         this.drawTo(context, PlotRect(0,0, width, height));
         surf.flush();
-        surf.finish();
+
+        if(type == "png") {
+            // So sue me for the cast.
+            auto result = (cast(ImageSurface) surf).writeToPng(filename);
+            enforce(result == cairo_status_t.SUCCESS, text(
+                "Unsuccessfully wrote png.  Error:  ", result));
+        } else {
+            surf.finish();
+        }
     }
 
 protected:
@@ -513,13 +527,18 @@ public:
     abstract int minWindowHeight();
 
 
-    /**Saves this figure to a file.  The file type can be either the raster
-     * formats .png, .jpg, .tiff, and .bmp, and the vector formats
+    /**Saves this figure to a file.  The file type can be one of either the
+     * raster formats .png, .jpg, .tiff, and .bmp, or the vector formats
      * .pdf, .svg and .eps.  The width and height parameters allow you to
      * specify explicit width and height parameters for the image file.  If
      * width and height are left at their default values
      * of 0, the default width and height of the subclass being saved will
      * be used.
+     *
+     * Bugs:  .jpg, .tiff and .bmp formats rely on Pixmap objects, meaning
+     *        you can't save them to a file unless you have a screen and
+     *        have called Main.init(), even though saving should have
+     *        nothing to do with X or screens.
      */
     void saveToFile
     (string filename, string type, double width = 0, double height = 0) {
@@ -528,12 +547,12 @@ public:
             height = this.defaultWindowHeight;
         }
 
-        if(type == "eps" || type == "pdf" || type == "svg") {
-            return saveImplVector(filename, type, width, height);
+        if(type == "eps" || type == "pdf" || type == "svg" || type == "png") {
+            return saveImplSurface(filename, type, width, height);
         } else {
-            enforce(type == "tiff" || type == "bmp" || type == "jpg" ||
-                type == "png", "Invalid format:  " ~ type);
-            return saveImplRaster(filename, type, width, height);
+            enforce(type == "tiff" || type == "bmp" || type == "jpg",
+                "Invalid format:  " ~ type);
+            return saveImplPixmap(filename, type, width, height);
         }
     }
 
