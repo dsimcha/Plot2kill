@@ -110,7 +110,7 @@ private:
     void fixMargins() {
         fixTickSizes();
         immutable xLabelSize = measureText(xLabel, xLabelFont);
-        bottomMargin = tickLabelHeight + tickPixels + xLabelSize.height + 10;
+        bottomMargin = tickLabelHeight + tickPixels + xLabelSize.height + 20;
 
         topMargin = measureText(title, titleFont, plotWidth).height + 20;
 
@@ -153,7 +153,7 @@ private:
         }
 
         immutable textSize = measureText(xLabel, xLabelFont);
-        auto rect = PlotRect(leftMargin, this.height - textSize.height - 5,
+        auto rect = PlotRect(leftMargin, this.height - textSize.height - 10,
             this.width - leftMargin - rightMargin, textSize.height);
 
         auto format = TextAlignment.Center;
@@ -211,6 +211,9 @@ private:
         }
     }
 
+    // Controls the space between a tick line and the tick label.
+    enum lineLabelSpace = 2;
+
     void drawXTick(double where, string text) {
         immutable wherePixels = toPixelsX(where);
         drawLine(
@@ -233,7 +236,7 @@ private:
 
         immutable textSize = measureText(text, axesFont, format);
         auto rect = PlotRect(wherePixels - textSize.width / 2,
-            this.height - bottomMargin  + tickPixels,
+            this.height - bottomMargin  + tickPixels + lineLabelSpace,
             textSize.width,
             textSize.height
         );
@@ -264,7 +267,7 @@ private:
 
         immutable textSize = measureText(text, axesFont, format);
         auto rect = PlotRect(
-            leftMargin - textSize.width - tickPixels - 2,
+            leftMargin - textSize.width - tickPixels - lineLabelSpace,
             this.height - wherePixels - textSize.height / 2,
             textSize.width,
             textSize.height
@@ -355,7 +358,7 @@ private:
             }
         }
         if(axesFont == Font.init) {
-            axesFont = getFont(plot2kill.util.defaultFont, 10);
+            axesFont = getFont(plot2kill.util.defaultFont, 12);
         }
     }
 
