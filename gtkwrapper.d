@@ -48,7 +48,8 @@ import gdk.Color, gdk.GC, gtk.Widget, gdk.Drawable, gtk.DrawingArea,
     gtk.MainWindow, gtk.Main, gdk.Window, gtk.Container, gtk.Window,
     gdk.Pixbuf, gdk.Pixmap, gtkc.all, gtk.FileChooserDialog, gtk.Dialog,
     gtk.FileFilter, gobject.ObjectG, cairo.Context, cairo.FontFace,
-    gtkc.cairotypes;
+    gtkc.cairotypes, cairo.PdfSurface, cairo.SvgSurface,
+    cairo.PostScriptSurface, cairo.Surface;
 
 /**GTK's implementation of a color object.*/
 struct Color {
@@ -164,6 +165,47 @@ private:
     // See drawLine() for an explanation of these variables.
     PlotPoint[2] lastLine;
     Pen lastLinePen;
+
+    void saveImplRaster(string filename, string type, double width, double height) {
+        int w = roundTo!int(width);
+        int h = roundTo!int(height);
+
+        auto pixmap = new Pixmap(null, w, h, 24);
+        scope(exit) doneWith(pixmap);
+
+        auto c = new Context(pixmap);
+        scope(exit) doneWith(c);
+
+        this.drawTo(c, PlotRect(0, 0, w, h));
+        auto pixbuf = new Pixbuf(pixmap, 0, 0, w, h);
+        scope(exit) doneWith(pixbuf);
+
+        pixbuf.savev(filename, type, null, null);
+    }
+
+    void saveImplVector(string filename, string type, double width, double height) {
+        Surface surf;
+        switch(type) {
+            case "pdf":
+                surf = PdfSurface.create(filename, width, height);
+                break;
+            case "eps":
+                surf = PostScriptSurface.create(filename, width, height);
+                break;
+            case "svg":
+                surf = SvgSurface.create(filename, width, height);
+                break;
+            default:
+                enforce(0, "Invalid file format:  " ~ type);
+        }
+
+        auto context = Context.create(surf);
+        scope(exit) doneWith(context);
+
+        this.drawTo(context, PlotRect(0,0, width, height));
+        surf.flush();
+        surf.finish();
+    }
 
 protected:
     // GTK reports the usable area as the size of the window, so these are 0.
@@ -471,33 +513,48 @@ public:
     abstract int minWindowHeight();
 
 
-    /**Saves this figure to a file.  The file type can be either .png,
-     * .jpg, .ico, .tiff, or .bmp.  width and height allow you to specify
-     * explicit width and height parameters for the image file.  These will
-     * not affect the width and height properties of this object after this
-     * method returns.  If width and height are left at their default values
-     * of 0, the current object-level width and height properties will be
-     * used.
+    /**Saves this figure to a file.  The file type can be either the raster
+     * formats .png, .jpg, .tiff, and .bmp, and the vector formats
+     * .pdf, .svg and .eps.  The width and height parameters allow you to
+     * specify explicit width and height parameters for the image file.  If
+     * width and height are left at their default values
+     * of 0, the default width and height of the subclass being saved will
+     * be used.
      */
     void saveToFile
-    (string filename, string type, int width = 0, int height = 0) {
-        // TODO:  Use Cairo to save this stuff.
-        if(width <= 0 || height <= 0) {
-            width = roundTo!int(this.width);
-            height = roundTo!int(this.height);
+    (string filename, string type, double width = 0, double height = 0) {
+        if(width == 0 || height == 0) {
+            width = this.defaultWindowWidth;
+            height = this.defaultWindowHeight;
         }
 
-        auto pixmap = new Pixmap(null, width, height, 24);
-        scope(exit) doneWith(pixmap);
+        if(type == "eps" || type == "pdf" || type == "svg") {
+            return saveImplVector(filename, type, width, height);
+        } else {
+            enforce(type == "tiff" || type == "bmp" || type == "jpg" ||
+                type == "png", "Invalid format:  " ~ type);
+            return saveImplRaster(filename, type, width, height);
+        }
+    }
 
-        auto c = new Context(pixmap);
-        scope(exit) c.destroy();
+    /**Convenience function that infers the type from the filename extenstion
+     * and defaults to .png if no valid file format extension is found.
+     */
+    void saveToFile(string filename, double width = 0, double height = 0) {
+        auto dotIndex = std.string.lastIndexOf(filename, '.');
+        string type;
+        if(dotIndex == filename.length - 1 || dotIndex == -1) {
+            type = "png";
+        } else {
+            type = filename[dotIndex + 1..$];
+        }
 
-        drawTo(c, width, height);
-        auto pixbuf = new Pixbuf(pixmap, 0, 0, width, height);
-        scope(exit) doneWith(pixbuf);
-
-        pixbuf.savev(filename, type, null, null);
+        try {
+            saveToFile(filename, type, width, height);
+        } catch {
+            // Default to svg.
+            saveToFile(filename, "png", width, height);
+        }
     }
 
     /**Creates a Widget that will have this object drawn to it.  This Widget
@@ -537,8 +594,7 @@ package:
         super();
         this._figure = fig;
         this.addOnExpose(&onDrawingExpose);
-        this.setSizeRequest(400, 300);
-       // this.setSizeRequest(800, 600);  // Default size.
+        this.setSizeRequest(fig.minWindowWidth, fig.minWindowHeight);
     }
 
     bool onDrawingExpose(GdkEventExpose* event, Widget drawingArea) {
@@ -548,11 +604,6 @@ package:
 
     void draw(double w, double h) {
         enforce(getParent() !is null, this.classinfo.name);
-
-//        if(!realized) {
-//            this.realize();
-//            realized = true;
-//        }
         auto context = new Context(getWindow());
         scope(exit) doneWith(context);
 
@@ -592,8 +643,8 @@ if(is(Base == gtk.Window.Window) || is(Base == gtk.MainWindow.MainWindow)) {
     private:
         FigureWidget widget;
 
-        immutable string[4] saveTypes =
-            ["*.png", "*.bmp", "*.tiff", "*.jpeg"];
+        immutable string[7] saveTypes =
+            ["*.png", "*.bmp", "*.tiff", "*.jpeg", "*.eps", "*.pdf", "*.svg"];
 
         // Based on using print statements to figure it out.  If anyone can
         // find the right documentation and wants to convert this to a proper
@@ -609,7 +660,8 @@ if(is(Base == gtk.Window.Window) || is(Base == gtk.MainWindow.MainWindow)) {
                 string name = fc.getFilename();
                 auto fileType = fc.getFilter().getName();
 
-                widget.figure.saveToFile(name, fileType);
+                widget.figure.saveToFile
+                    (name, fileType, widget.getWidth, widget.getHeight);
                 d.destroy();
             } else {
                 d.destroy();

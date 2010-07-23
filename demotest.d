@@ -79,15 +79,9 @@ void main(string[] args)
     hist.xLabel = "Random Variable";
     hist.yLabel = "Count";
 
-    version(gtk) {{
-        // Saving doesn't work yet on DFL.
-       // hist.saveToFile("foo.png", "png", 800, 600);
-       auto surf = SvgSurface.create("foo.svg", 1024, 768);
-       auto context = Context.create(surf);
-       hist.drawTo(context, 1024, 768);
-       surf.flush();
-       surf.finish();
-    }}
+    version(gtk) {
+        hist.saveToFile("foo.svg");
+    }
     hist.showAsMain();
 
     auto errs = [0.1, 0.2, 0.3, 0.4];
