@@ -150,6 +150,12 @@ void doneWith(T)(T garbage) {
 
         // Since we're already in here be dragons territory, we may as well:
         core.memory.GC.free(cast(void*) garbage);
+    } else static if(is(T : cairo.Context.Context) || is(T : cairo.Surface.Surface)) {
+
+        static if(is(T : cairo.Surface.Surface)) {
+            garbage.finish();
+        }
+        garbage.destroy();
     }
 }
 
@@ -205,6 +211,7 @@ private:
                 enforce(0, "Invalid file format:  " ~ type);
         }
 
+        scope(exit) doneWith(surf);
         auto context = Context.create(surf);
         scope(exit) doneWith(context);
 
@@ -216,9 +223,8 @@ private:
             auto result = (cast(ImageSurface) surf).writeToPng(filename);
             enforce(result == cairo_status_t.SUCCESS, text(
                 "Unsuccessfully wrote png.  Error:  ", result));
-        } else {
-            surf.finish();
         }
+
     }
 
 protected:

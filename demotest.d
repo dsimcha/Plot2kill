@@ -82,7 +82,7 @@ void main(string[] args)
     version(gtk) {
         hist.saveToFile("foo.svg");
     }
-    hist.showAsMain();
+ //   hist.showAsMain();
 
     auto errs = [0.1, 0.2, 0.3, 0.4];
     auto linesWithErrors =
@@ -198,12 +198,9 @@ void main(string[] args)
         .xLabel("Boring X-Axis Label");
 
     version(gtk) {{
-        sp.saveToFile("sp.png", "png", 1280, 1024);
-        auto surf = SvgSurface.create("sp.svg", 1280, 1024);
-        auto context = Context.create(surf);
-        sp.drawTo(context, 1024, 768);
-        surf.flush();
-        surf.finish();
+        sp.saveToFile("sp.png", 1280, 1024);
+        sp.saveToFile("sp.pdf", 1280, 1024);
+
     }}
     sp.showAsMain();
 }}
