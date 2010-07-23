@@ -203,4 +203,8 @@ void main(string[] args)
 
     }}
     sp.showAsMain();
+
+    Histogram h;
+    auto fig = Figure(h);
+    fig.showAsMain();
 }}

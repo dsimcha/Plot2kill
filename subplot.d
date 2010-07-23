@@ -343,10 +343,10 @@ private:
     uint nRows;
     uint nColumns;
 
-    double topMargin;
-    double bottomMargin;
-    double leftMargin;
-    enum int rightMargin = 30;  // No label here so it can be an enum.
+    double topMargin = 0;
+    double bottomMargin = 0;
+    double leftMargin = 0;
+    enum int rightMargin = 10;  // No label here so it can be an enum.
 
     Figure[][] figs;
     Figure zoomedFigure;

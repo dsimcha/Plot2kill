@@ -685,6 +685,10 @@ public:
     /**Add one or more plots to the figure.*/
     Figure addPlot(Plot[] plots...) {
         foreach(plot; plots) {
+            if(!isValidPlot(plot)) {
+                continue;
+            }
+
             upperLim = max(upperLim, plot.topMost);
             rightLim = max(rightLim, plot.rightMost);
             leftLim = min(leftLim, plot.leftMost);
@@ -697,6 +701,16 @@ public:
 
     /**Draw the plot but don't display it on screen.*/
     override void drawImpl() {
+        auto whiteBrush = getBrush(getColor(255, 255, 255));
+        fillRectangle(whiteBrush, 0, 0, this.width, this.height);
+        doneWith(whiteBrush);
+
+        // If this is not a valid Figure, leave a big blank white rectangle.
+        // It beats crashing.
+        if(!(leftLim < rightLim && lowerLim < upperLim)) {
+            return;
+        }
+
         axesPen = getPen(getColor(0, 0, 0), 2);
         scope(exit) doneWith(axesPen);
 
@@ -715,10 +729,6 @@ public:
                 this.height, tickLabelHeight);
         }
         fixMargins();
-
-        auto whiteBrush = getBrush(getColor(255, 255, 255));
-        fillRectangle(whiteBrush, 0, 0, this.width, this.height);
-        doneWith(whiteBrush);
 
         foreach(plot; plotData) {
             if(!isValidPlot(plot)) {
