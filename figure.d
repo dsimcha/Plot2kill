@@ -74,7 +74,7 @@ private:
     double topMargin = 10;
     double bottomMargin = 10;
     double leftMargin = 10;
-    double rightMargin = 10;
+    double rightMargin = 30;
 
     enum tickPixels = 10;
     double xTickLabelWidth;
