@@ -20,11 +20,14 @@
  */
 module plot2kill.dflwrapper;
 
+
 version(dfl) {
 
 import dfl.all;
+public import dfl.drawing : RFont;
 
 import plot2kill.util;
+import plot2kill.guiagnosticbase;
 
 /**DFL's implementation of a color object.*/
 alias dfl.drawing.Color Color;
@@ -76,8 +79,8 @@ void doneWith(T)(T garbage) {
         garbage.dispose();
     }
 
-    static if(is(typeof(garbage) == Brush)) {
-        // Having too many brushes active seems to wreak havok on DFL.
+    static if(is(T : Brush) || is(T : Pen)) {
+        // Having too many brushes and pens active seems to wreak havok on DFL.
         delete garbage;
     }
 }
@@ -85,9 +88,7 @@ void doneWith(T)(T garbage) {
 /**The DFL-specific parts of the Figure class.  These include wrappers around
  * the subset of drawing functionality used by Plot2Kill.
  */
-class FigureBase {
-    mixin(GuiAgnosticBaseMixin);
-
+class FigureBase : GuiAgnosticBase {
 private:
     // This is indexed via a TextAlignment enum.
     TextFormat[3] textAlignments;
@@ -98,8 +99,11 @@ private:
         // even if rounding fscks up the x/y coordinate.
         immutable intX = roundTo!int(x);
         immutable intY = roundTo!int(y);
-        immutable intWidth = roundTo!int(x + width - intX);
-        immutable intHeight = roundTo!int(y + height - intY);
+
+        // The ceil is because it generally looks better to overshoot than
+        // to undershoot and have a big gaping white gap laying around.
+        immutable intWidth = to!int(ceil(x + width - intX));
+        immutable intHeight = to!int(ceil(y + height - intY));
 
         return Rect(intX, intY, intWidth, intHeight);
     }
@@ -108,7 +112,7 @@ protected:
     // Fonts tend to be different actual sizes on different GUI libs for a
     // given nominal size. This adjusts for that factor when setting default
     // fonts.
-    enum fontSizeAdjust = -2;
+    enum fontSizeAdjust = -3;
 
     Graphics context;
 
@@ -184,7 +188,10 @@ public:
             text, font, pointColor, offsetRect, textAlignments[alignment]);
     }
 
-    // BUGS:  Draws columnar text, not rotated text.
+    // BUGS:  Draws columnar text, not rotated text, unless you're running DFL
+    // with patches that I haven't released yet.  Also, in the columnar text
+    // case, since it's such a kludge anyhow, assumes you really want the text
+    // centered w.r.t. the whole figure.
     final void drawRotatedText(
         string text,
         Font font,
@@ -192,15 +199,37 @@ public:
         PlotRect rect,
         TextAlignment alignment
     ) {
-        auto offsetRect = Rect(
-            roundTo!int(rect.x + xOffset),
-            roundTo!int(rect.y + yOffset),
-            roundTo!int(rect.width),
-            roundTo!int(rect.height)
-        );
-        context.drawText(
-            addNewLines(text), font, pointColor, offsetRect,
-            textAlignments[alignment]);
+        static if(is(dfl.drawing.RFont)) {  // Patched DFL
+            auto rfont = new RFont(font.name, font.size);
+            scope(exit) doneWith(rfont);
+
+            auto meas = measureText(text, font);
+            auto slack = max(0, rect.height - meas.width);
+            double toAdd;
+            if(alignment == TextAlignment.Center) {
+                toAdd = slack / 2;
+            } else if(alignment == TextAlignment.Right) {
+                toAdd = slack;
+            }
+
+            // The rotated text patch is buggy, and will try to wrap words
+            // when it shouldn't.  Make width huge to effectively disable
+            // wrapping.  Also, DFL's Y coord is for the bottom, not the top.
+            // Fix this.
+            auto rect2 = PlotRect(
+                rect.x, rect.y + meas.width + toAdd,
+                10 * this.width, rect.width);
+            drawText(text, rfont, getColor(0, 0, 0), rect2);
+        } else {
+            // Render butt-ugly columnar text and assume it should be
+            // centered vertically w.r.t. the figure as a whole.
+            text = addNewLines(text);
+            auto meas = measureText(text, font);
+            auto slack = max(0, this.height - meas.height);
+
+            auto rect2 = PlotRect(rect.x, slack / 2, meas.width, meas.height);
+            drawText(text, font, pointColor, rect2);
+        }
     }
 
     final void drawText(
@@ -373,7 +402,8 @@ public:
 
         this.size = Size(control.width, control.height);
         this.minimumSize =
-            Size(400 + verticalBorderSize, 300 + verticalBorderSize);
+            Size(control.figure.minWindowWidth + verticalBorderSize,
+                 control.figure.minWindowHeight + verticalBorderSize);
 
         this.resize ~= &control.parentResize;
         this.activated ~= &control.drawFigureEvent;

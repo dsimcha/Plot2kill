@@ -102,10 +102,6 @@ void main(string[] args)
     binom.xLabel = "N Successes";
     binom.yLabel = "Probability";
     binom.xTickLabels(array(iota(0, 9, 1)));
-    binom.titleFont = getFont("Veranda", 20);
-    binom.xLabelFont = getFont("Arial", 20);
-    binom.yLabelFont = getFont("Veranda", 14);
-    binom.axesFont = getFont("Veranda", 12);
     binom.xLim(0, 8);
   //  binom.showAsMain();
 
@@ -166,13 +162,13 @@ void main(string[] args)
     heatScatter
         .coldColor(getColor(255, 255, 255))
         .hotColor(getColor(0, 0, 0));
-    auto heatScatterFig = heatScatter.toFigure;
-    heatScatterFig
+    auto heatScatterFig = heatScatter.toFigure
         .xLim(-4, 2)
         .yLim(-2, 4)
         .title("2D Histogram")
         .xLabel("Normal(-2, 1) + Y[i]")
         .yLabel("Normal(1, 1)");
+
     version(gtk) {
         heatScatterFig.saveToFile("bar.png", "png", 640, 480);
     }
@@ -180,8 +176,12 @@ void main(string[] args)
 
     version(gtk) {
         enum string subplotY = "Pretty Rotated Text";
+        enum string titleStuff = "Plot2Kill GTK Demo  (Programmatically " ~
+            "saved, no longer a screenshot)";
     } else version(dfl) {
         enum string subplotY = "Ugly Columnar Text";
+        enum string titleStuff = "Plot2Kill DFL Demo";
+
     }
 
     auto sp = Subplot(3, 3)
@@ -194,8 +194,7 @@ void main(string[] args)
         .addFigure(frqHist, 2, 0)
         .addFigure(uniqueHistFig, 2, 1)
         .addFigure(heatScatterFig, 2, 2)
-        .title("Plot2Kill gtkD Demo  (Programmatically " ~
-            "saved, no longer a screenshot)")
+        .title(titleStuff)
         .yLabel(subplotY)
         .xLabel("Boring X-Axis Label");
 

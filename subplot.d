@@ -34,9 +34,8 @@ module plot2kill.subplot;
 import plot2kill.figure;
 import plot2kill.util;
 
-/**This is the GUI-agnostic base mixin for a Subplot.  Everything documented
- * here is available in the Subplot class implementation for whatever GUI
- * toolkit you're using.
+/**This is the GUI-agnostic base class for a Subplot.  See Subplot the Subplot
+ * class, which derives from this class and has a few GUI-specific things added.
  *
  * Subplot objects allows for one or more subplots to be created in a single
  * window or a single file.  Each subplot is represented by a Figure.
@@ -53,12 +52,7 @@ import plot2kill.util;
  * sub.showAsMain();
  * ---
  */
-template SubplotBase() {
-    // Using a mixin instead of inheritance here would have been too messy to
-    // debug.
-
-    mixin(labelStuff);
-
+abstract class SubplotBase : FigureBase {
 private:
     uint nRows;
     uint nColumns;
@@ -79,19 +73,19 @@ private:
     }
 
     void nullFontsToDefaults() {
-        if(nullOrInit(titleFont)) {
-            titleFont = getFont(plot2kill.util.defaultFont, 18 + fontSizeAdjust);
-            assert(!nullOrInit(titleFont));
+        if(nullOrInit(_titleFont)) {
+            _titleFont = getFont(plot2kill.util.defaultFont, 18 + fontSizeAdjust);
+            assert(!nullOrInit(_titleFont));
         }
 
-        if(nullOrInit(xLabelFont)) {
-            xLabelFont = getFont(plot2kill.util.defaultFont, 14 + fontSizeAdjust);
-            assert(!nullOrInit(xLabelFont));
+        if(nullOrInit(_xLabelFont)) {
+            _xLabelFont = getFont(plot2kill.util.defaultFont, 14 + fontSizeAdjust);
+            assert(!nullOrInit(_xLabelFont));
         }
 
-        if(nullOrInit(yLabelFont)) {
-            yLabelFont = getFont(plot2kill.util.defaultFont, 14 + fontSizeAdjust);
-            assert(!nullOrInit(yLabelFont));
+        if(nullOrInit(_yLabelFont)) {
+            _yLabelFont = getFont(plot2kill.util.defaultFont, 14 + fontSizeAdjust);
+            assert(!nullOrInit(_yLabelFont));
         }
     }
 
@@ -99,11 +93,11 @@ private:
         // The amount of margin that's left before the labels are even drawn.
         enum labelMargin = 10;
         nullFontsToDefaults();
-        if(xLabel.length > 0) {
-            immutable textSize = measureText(xLabel, xLabelFont);
+        if(_xLabel.length > 0) {
+            immutable textSize = measureText(_xLabel, _xLabelFont);
             bottomMargin = textSize.height + labelMargin;
             drawText(
-                xLabel, xLabelFont, getColor(0, 0, 0),
+                _xLabel, _xLabelFont, getColor(0, 0, 0),
                 PlotRect(0,
                     this.height - bottomMargin,
                     this.width, textSize.height),
@@ -113,11 +107,11 @@ private:
             bottomMargin = 0;
         }
 
-        if(title.length > 0) {
-            immutable textSize = measureText(title, titleFont);
+        if(_title.length > 0) {
+            immutable textSize = measureText(_title, _titleFont);
             topMargin = textSize.height + labelMargin;
             drawText(
-                title, titleFont, getColor(0, 0, 0),
+                _title, _titleFont, getColor(0, 0, 0),
                 PlotRect(0, labelMargin, width, topMargin - labelMargin),
                 TextAlignment.Center
             );
@@ -125,27 +119,16 @@ private:
             topMargin = 0;
         }
 
-        if(yLabel.length > 0) {
-            version(noRotatedText) {
-                immutable textSize = measureText(yLabel, yLabelFont, 1);
-                immutable margin = (this.height - textSize.height) / 2;
-                leftMargin = textSize.width + labelMargin;
-                auto rect = PlotRect(10, margin,
-                    1, textSize.height
-                );
-
-                drawText(yLabel, yLabelFont, getColor(0, 0, 0), rect);
-            } else {
-                immutable textSize = measureText(yLabel, yLabelFont);
-                leftMargin = textSize.height + labelMargin;
+        if(_yLabel.length > 0) {
+            immutable textSize = measureText(_yLabel, _yLabelFont);
+            leftMargin = textSize.height + labelMargin;
 
 
-                drawRotatedText(
-                    yLabel, yLabelFont, getColor(0, 0, 0),
-                    PlotRect(labelMargin, 0, textSize.height, this.height),
-                    TextAlignment.Center
-                );
-            }
+            drawRotatedText(
+                _yLabel, _yLabelFont, getColor(0, 0, 0),
+                PlotRect(labelMargin, 0, textSize.height, this.height),
+                TextAlignment.Center
+            );
         }
     }
 
@@ -244,26 +227,27 @@ public:
     /**Add a figure to the subplot in the given row and column.
      * This function returns this to allow for a fluent interface.
      */
-    Subplot addFigure(Figure fig, uint row, uint col) {
+    This addFigure(this This)(Figure fig, uint row, uint col) {
         enforce(row < nRows && col < nColumns, std.conv.text(
             "Can't add a plot to cell (",row, ", ", col, ") of a ", nRows,
             "x", nColumns, " Subplot."));
 
         figs[row][col] = fig;
-        return this;
+        return cast(This) this;
     }
 };
 
 version(dfl) {
 
-version = noRotatedText;
-
 import dfl.form, dfl.label, dfl.control, dfl.event, dfl.picturebox, dfl.base,
     dfl.application;
 
 ///
-class Subplot : FigureBase {
-    mixin SubplotBase;
+class Subplot : SubplotBase {
+
+    private this(uint nRows, uint nColumns) {
+        super(nRows, nColumns);
+    }
 
     /**Create an instance with nRows rows and nColumns columns.*/
     static Subplot opCall(uint nRows, uint nColumns) {
@@ -280,6 +264,79 @@ class Subplot : FigureBase {
         Application.run(new DefaultPlotWindow(this.toControl));
     }
 }
+
+/* This class is an implementation detail.  All public code should use it as
+ * its base class.  It's very tightly coupled to the Subplot class because
+ * it contains bejavior that doesn't make any sense to expose in a more
+ * transparent way.
+ */
+package class SubplotControl : FigureControl {
+
+    this(Subplot sp) {
+        super(sp);
+       // this.doubleClick ~= &zoomEvent;
+        this.size = Size(1024, 768);
+    }
+
+    /* Returns the FigureBase, downcast to a Subplot.  This is safe because our
+     * C'tor only accepts Subplots.
+     */
+    Subplot subplot() {
+        auto ret = cast(Subplot) figure;
+
+        // Safeguard in case this gets refactored and our assumptions break:
+        assert(ret);
+        return ret;
+    }
+
+    Figure getFigureAt(double x, double y) {
+        auto sp = subplot();
+
+        with(sp) {
+            if(x < leftMargin || y < topMargin) {
+                return null;
+            }
+
+            immutable figWidth = getFigWidth(this.width);
+            immutable figHeight = getFigHeight(this.height);
+
+
+            immutable xCoord = to!int((x - leftMargin) / figWidth);
+            immutable yCoord = to!int((y - topMargin) / figHeight);
+            if(xCoord < nColumns && yCoord < nRows) {
+                return figs[yCoord][xCoord];
+            } else {
+                return null;
+            }
+        }
+    }
+
+//    // Handles zooming in on double click.
+//    void zoomEvent(Control c, EventArgs ea) {
+//        auto sp = subplot();
+//
+//        with(sp) {
+//            if(press.type != GdkEventType.DOUBLE_BUTTON_PRESS
+//               || press.button != 1) {
+//                return false;
+//            }
+//
+//            if(zoomedFigure is null) {
+//                auto toZoom = getFigureAt(press.x, press.y);
+//                if(toZoom !is null) {
+//                    zoomedFigure = toZoom;
+//                    draw();
+//                }
+//            } else {
+//                zoomedFigure = null;
+//                draw();
+//            }
+//
+//            return true;
+//        }
+//    }
+}
+
 }
 
 version(gtk) {
@@ -287,9 +344,11 @@ version(gtk) {
 import gtk.DrawingArea, gdk.Drawable, gtk.Widget;
 
 ///
-class Subplot : FigureBase {
+class Subplot : SubplotBase {
 
-    mixin SubplotBase;
+    private this(uint nRows, uint nColumns) {
+        super(nRows, nColumns);
+    }
 
     /**Create an instance with nRows rows and nColumns columns.*/
     static Subplot opCall(uint nRows, uint nColumns) {

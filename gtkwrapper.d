@@ -43,6 +43,7 @@ module plot2kill.gtkwrapper;
 version(gtk) {
 
 import plot2kill.util;
+import plot2kill.guiagnosticbase;
 
 import gdk.Color, gdk.GC, gtk.Widget, gdk.Drawable, gtk.DrawingArea,
     gtk.MainWindow, gtk.Main, gdk.Window, gtk.Container, gtk.Window,
@@ -162,9 +163,7 @@ void doneWith(T)(T garbage) {
 /**The base class for both FigureBase and Subplot.  Holds common functionality
  * like saving and text drawing.
  */
-abstract class FigureBase {
-    mixin(GuiAgnosticBaseMixin);
-
+abstract class FigureBase : GuiAgnosticBase {
 private:
     enum ubyteMax = cast(double) ubyte.max;
 

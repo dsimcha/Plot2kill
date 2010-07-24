@@ -33,7 +33,6 @@ import plot2kill.util;
 
 version(dfl) {
     public import plot2kill.dflwrapper;
-    version = noRotatedText;
 } else version(gtk) {
     public import plot2kill.gtkwrapper;
 }
@@ -53,8 +52,6 @@ version(dfl) {
  * ---
  */
 class Figure : FigureBase {
-    mixin(labelStuff);
-
 private:
     double upperLim = -double.infinity;
     double lowerLim = double.infinity;
@@ -109,16 +106,16 @@ private:
 
     void fixMargins() {
         fixTickSizes();
-        immutable xLabelSize = measureText(xLabel, xLabelFont);
+        immutable xLabelSize = measureText(xLabel(), xLabelFont());
         bottomMargin = tickLabelHeight + tickPixels + xLabelSize.height + 20;
 
-        topMargin = measureText(title, titleFont, plotWidth).height + 20;
+        topMargin = measureText(title(), titleFont(), plotWidth).height + 20;
 
         version(noRotatedText) {
-            leftMargin = measureText(yLabel, yLabelFont, 1).width +
+            leftMargin = measureText(yLabel(), yLabelFont(), 1).width +
                 tickPixels + yTickLabelWidth + 30;
         } else {
-            leftMargin = measureText(yLabel, yLabelFont).height +
+            leftMargin = measureText(yLabel(), yLabelFont()).height +
                          tickPixels + yTickLabelWidth + 30;
         }
     }
@@ -137,50 +134,40 @@ private:
     mixin(toPixels);
 
     void drawTitle() {
-        if(nullOrInit(titleFont)) {
+        if(nullOrInit(titleFont())) {
             return;
         }
 
         auto rect = PlotRect(leftMargin,
             topMargin / 4, this.plotWidth, topMargin * 3 / 4);
         auto format = TextAlignment.Center;
-        drawText(title, titleFont, getColor(0, 0, 0), rect, format);
+        drawText(title(), titleFont(), getColor(0, 0, 0), rect, format);
     }
 
     void drawXlabel() {
-        if(nullOrInit(xLabelFont)) {
+        if(nullOrInit(xLabelFont())) {
             return;
         }
 
-        immutable textSize = measureText(xLabel, xLabelFont);
+        immutable textSize = measureText(xLabel(), xLabelFont());
         auto rect = PlotRect(leftMargin, this.height - textSize.height - 10,
             this.width - leftMargin - rightMargin, textSize.height);
 
         auto format = TextAlignment.Center;
-        drawText(xLabel, xLabelFont, getColor(0, 0, 0), rect, format);
+        drawText(xLabel(), xLabelFont(), getColor(0, 0, 0), rect, format);
     }
 
     void drawYlabel() {
-        if(nullOrInit(yLabelFont) || yLabel.length == 0) {
+        if(nullOrInit(yLabelFont()) || yLabel().length == 0) {
             return;
         }
 
-        version(noRotatedText) {
-            immutable textSize = measureText(yLabel, yLabelFont, 1);
-            immutable margin = (this.height - textSize.height) / 2;
-            auto rect = PlotRect(10, margin,
-                1, textSize.height
-            );
+        immutable textSize = measureText(yLabel(), yLabelFont());
+        immutable margin = (plotHeight - textSize.width) / 2 + topMargin;
+        auto rect = PlotRect(10, margin, textSize.height, textSize.width);
 
-            drawText(yLabel, yLabelFont, getColor(0, 0, 0), rect);
-        } else {
-            immutable textSize = measureText(yLabel, yLabelFont);
-            immutable margin = (plotHeight - textSize.width) / 2 + topMargin;
-            auto rect = PlotRect(10, margin, textSize.height, textSize.width);
-
-            drawRotatedText(yLabel,
-                yLabelFont, getColor(0, 0, 0), rect, TextAlignment.Center);
-        }
+        drawRotatedText(yLabel(),
+            yLabelFont(), getColor(0, 0, 0), rect, TextAlignment.Center);
     }
 
     void drawExtraLines() {
@@ -228,7 +215,7 @@ private:
                 PlotPoint(wherePixels, this.height - bottomMargin));
         }
 
-        if(nullOrInit(axesFont)) {
+        if(nullOrInit(axesFont())) {
             return;
         }
 
@@ -339,27 +326,20 @@ private:
     }
 
     void nullFontsToDefaults() {
-        if(nullOrInit(titleFont)) {
-            titleFont = getFont(plot2kill.util.defaultFont, 14 + fontSizeAdjust);
+        if(nullOrInit(titleFont())) {
+            _titleFont = getFont(plot2kill.util.defaultFont, 14 + fontSizeAdjust);
         }
-        if(nullOrInit(xLabelFont)) {
-            xLabelFont = getFont(plot2kill.util.defaultFont, 14 + fontSizeAdjust);
+        if(nullOrInit(xLabelFont())) {
+            _xLabelFont = getFont(plot2kill.util.defaultFont, 14 + fontSizeAdjust);
         }
 
-        version(noRotatedText) {
-            if(nullOrInit(yLabelFont)) {
-                // For now the default should be a fixed-width font to make the
-                // columnar text look half decent.
-                yLabelFont = getFont("Courier New", 12 + fontSizeAdjust);
-            }
-        } else {
-            if(nullOrInit(yLabelFont)) {
-                yLabelFont = getFont
-                    (plot2kill.util.defaultFont, 14 + fontSizeAdjust);
-            }
+        if(nullOrInit(yLabelFont())) {
+            _yLabelFont = getFont
+                (plot2kill.util.defaultFont, 14 + fontSizeAdjust);
         }
-        if(nullOrInit(axesFont)) {
-            axesFont = getFont(plot2kill.util.defaultFont, 12 + fontSizeAdjust);
+
+        if(nullOrInit(axesFont())) {
+            _axesFont = getFont(plot2kill.util.defaultFont, 12 + fontSizeAdjust);
         }
     }
 
@@ -526,6 +506,10 @@ public:
         if(clipRectangle(x, y, width, height)) {
             drawRectangle(pen, x, y, width, height);
         }
+    }
+
+    void drawClippedRectangle(Pen pen, PlotRect r) {
+        drawClippedRectangle(pen, r.x, r.y, r.width, r.height);
     }
 
     void fillClippedRectangle
@@ -1419,6 +1403,8 @@ class FrequencyHistogram : Plot {
         immutable zeroPoint = toPixelsY(0);
         auto brush = form.getBrush(barColor);
         scope(exit) doneWith(brush);
+        auto pen = form.getPen(barColor, 1);
+        scope(exit) doneWith(pen);
 
         auto blackPen = form.getPen(getColor(0, 0, 0));
         scope(exit) doneWith(blackPen);
@@ -1436,6 +1422,9 @@ class FrequencyHistogram : Plot {
             immutable startAt = zeroPoint - heightPixels;
 
             form.fillClippedRectangle(brush, leftPixels,
+                startAt, widthPixels, heightPixels);
+
+            form.drawClippedRectangle(pen, leftPixels,
                 startAt, widthPixels, heightPixels);
 
             // Don't outline rectangle because for equal-frequency
@@ -1682,7 +1671,11 @@ class HeatMap : Plot {
 
                 auto brush = form.getBrush(color);
                 scope(exit) doneWith(brush);
+                auto pen = form.getPen(color, 1);
+                scope(exit) doneWith(pen);
+
                 form.fillClippedRectangle(brush, rect);
+                form.drawClippedRectangle(pen, rect);
             }
         }
     }
@@ -1939,7 +1932,8 @@ class ScatterPlot : Plot {
         auto pen = form.getPen(pointColor);
         scope(exit) doneWith(pen);
 
-        auto font = getFont(plot2kill.util.defaultFont, 10);
+        auto font = getFont(plot2kill.util.defaultFont,
+            10 + Figure.fontSizeAdjust);
         scope(exit) doneWith(font);
 
         string writeThis = [cast(immutable) pointSymbol];
