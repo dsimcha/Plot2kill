@@ -88,7 +88,7 @@ private:
         void fixTickLabelSize(ref double toFix, string[] axisText) {
             toFix = 0;
             foreach(lbl; axisText) {
-                auto lblSize = measureText(lbl, axesFont);
+                auto lblSize = measureText(lbl, _axesFont);
                 if(lblSize.height > tickLabelHeight) {
                     tickLabelHeight = lblSize.height;
                 }
@@ -215,20 +215,20 @@ private:
                 PlotPoint(wherePixels, this.height - bottomMargin));
         }
 
-        if(nullOrInit(axesFont())) {
+        if(nullOrInit(_axesFont)) {
             return;
         }
 
         auto format = TextAlignment.Center;
 
-        immutable textSize = measureText(text, axesFont, format);
+        immutable textSize = measureText(text, _axesFont, format);
         auto rect = PlotRect(wherePixels - textSize.width / 2,
             this.height - bottomMargin  + tickPixels + lineLabelSpace,
             textSize.width,
             textSize.height
         );
 
-        drawText(text, axesFont, getColor(0, 0, 0), rect, format);
+        drawText(text, _axesFont, getColor(0, 0, 0), rect, format);
     }
 
     void drawYTick(double where, string text) {
@@ -239,7 +239,7 @@ private:
             PlotPoint(leftMargin - tickPixels, this.height - wherePixels)
         );
 
-        if(nullOrInit(axesFont)) {
+        if(nullOrInit(_axesFont)) {
             return;
         }
 
@@ -252,7 +252,7 @@ private:
 
         auto format = TextAlignment.Right;
 
-        immutable textSize = measureText(text, axesFont, format);
+        immutable textSize = measureText(text, _axesFont, format);
         auto rect = PlotRect(
             leftMargin - textSize.width - tickPixels - lineLabelSpace,
             this.height - wherePixels - textSize.height / 2,
@@ -260,7 +260,7 @@ private:
             textSize.height
         );
 
-        drawText(text, axesFont, getColor(0, 0, 0), rect, format);
+        drawText(text, _axesFont, getColor(0, 0, 0), rect, format);
     }
 
     void setupAxes(
@@ -357,7 +357,7 @@ protected:
 
     this(Plot[] plots...) {
         this();
-        addPlot(plots);
+        addPlot!(Figure)(plots);
     }
 
 public:
@@ -555,14 +555,14 @@ public:
     }
 
     ///
-    final Font axesFont() {
+    final Font axesFont()() {
         return _axesFont;
     }
 
     ///
-    final typeof(this) axesFont(Font newFont) {
+    final This axesFont(this This)(Font newFont) {
         _axesFont = newFont;
-        return this;
+        return cast(This) this;
     }
 
     ///
@@ -577,16 +577,16 @@ public:
 
     /**Manually set the X axis limits.
      */
-    Figure xLim(double newLower, double newUpper) {
+    final This xLim(this This)(double newLower, double newUpper) {
         setLim(newLower, newUpper, leftLim, rightLim);
-        return this;
+        return cast(This) this;
     }
 
     /**Manually set the Y axis limits.
      */
-    Figure yLim(double newLower, double newUpper) {
+    This yLim(this This)(double newLower, double newUpper) {
         setLim(newLower, newUpper, lowerLim, upperLim);
-        return this;
+        return cast(This) this;
     }
 
     /**Set the X axis labels.  If text is null (default) the axis text is
@@ -594,7 +594,7 @@ public:
      * length identical to text (unless text is null) and elements implicitly
      * convertible to double.
      */
-    Figure xTickLabels(R)(R locations, const string[] text = null)
+    This xTickLabels(R, this This)(R locations, const string[] text = null)
     if(isInputRange!R && is(ElementType!R : double)) {
         userSetXAxis = true;
         xAxisLocations = toDoubleArray(locations);
@@ -607,7 +607,7 @@ public:
             xAxisText = doublesToStrings(xAxisLocations);
         }
 
-        return this;
+        return cast(This) this;
     }
 
     /**Set the Y axis labels.  If text is null (default) the axis text is
@@ -615,7 +615,7 @@ public:
      * length identical to text (unless text is null) and elements implicitly
      * convertible to double.
      */
-    Figure yTickLabels(R)(R locations, const string[] text = null)
+    This yTickLabels(R, this This)(R locations, const string[] text = null)
     if(isInputRange!R && is(ElementType!R : double)) {
         userSetYAxis = true;
         yAxisLocations = toDoubleArray(locations);
@@ -628,7 +628,7 @@ public:
             yAxisText = doublesToStrings(yAxisLocations);
         }
 
-        return this;
+        return cast(This) this;
     }
 
     /**Determines whether horizontal gridlines are drawn.  Default is false.*/
@@ -662,13 +662,13 @@ public:
      * to the visible part of the plot area.  This is useful for adding
      * annotation lines, as opposed to plot lines.
      */
-    Figure addLines(FigureLine[] lines...) {
+    This addLines(this This)(FigureLine[] lines...) {
         extraLines ~= lines;
-        return this;
+        return cast(This) this;
     }
 
     /**Add one or more plots to the figure.*/
-    Figure addPlot(Plot[] plots...) {
+    This addPlot(this This)(Plot[] plots...) {
         foreach(plot; plots) {
             if(!isValidPlot(plot)) {
                 continue;
@@ -681,7 +681,7 @@ public:
             plotData ~= plot;
         }
 
-        return this;
+        return cast(This) this;
     }
 
     /**Draw the plot but don't display it on screen.*/
@@ -881,7 +881,7 @@ private:
         this._centers = centers;
         this._heights = heights;
         this.width = width;
-        barColor = getColor(0, 0, 255);
+        _barColor = getColor(0, 0, 255);
         fixBounds();
     }
 
@@ -899,7 +899,7 @@ protected:
 
         immutable multiplier = plotHeight / (this.upperLim - this.lowerLim);
         immutable zeroPoint = toPixelsY(0);
-        auto brush = form.getBrush(barColor);
+        auto brush = form.getBrush(_barColor);
         scope(exit) doneWith(brush);
 
         auto blackPen = form.getPen(getColor(0, 0, 0));
@@ -948,14 +948,14 @@ protected:
 
 public:
     /**Controls the color of the bar.  Defaults to blue.*/
-    final Color barColor() {
+    final Color barColor()() {
         return _barColor;
     }
 
     /// Setter
-    final typeof(this) barColor(Color newColor) {
+    final This barColor(this This)(Color newColor) {
         _barColor = newColor;
-        return this;
+        return cast(This) this;
     }
 
     ///
@@ -1107,7 +1107,7 @@ class Histogram : Plot {
     private HistType countsOrProbs;
 
     private this() {
-        barColor = getColor(0, 0, 255);
+        _barColor = getColor(0, 0, 255);
     }
 
     private bool isCumulative = false;
@@ -1136,7 +1136,7 @@ class Histogram : Plot {
         auto blackPen = form.getPen(getColor(0, 0, 0), 1);
         scope(exit) doneWith(blackPen);
 
-        auto brush = form.getBrush(barColor);
+        auto brush = form.getBrush(_barColor);
         scope(exit) doneWith(brush);
 
         double horizPos = leftMargin;
@@ -1180,14 +1180,14 @@ class Histogram : Plot {
     private Color _barColor;
 
     /**Controls the color of the bar.  Defaults to blue.*/
-    final Color barColor() {
+    final Color barColor()() {
         return _barColor;
     }
 
     /// Setter
-    final typeof(this) barColor(Color newColor) {
+    final This barColor(this This)(Color newColor) {
         _barColor = newColor;
-        return this;
+        return cast(This) this;
     }
 
     /// The number of bins this histogram contains.
@@ -1267,14 +1267,14 @@ class Histogram : Plot {
     }
 
     /**Add a number to the histogram on the fly.*/
-    Histogram put(double num) {
+    This put(this This)(double num) {
         if(outOfBoundsBehavior == OutOfBounds.Throw) {
             enforce(num >= leftLim && num <= rightLim, text(
                 "Number out of bounds for histogram.  Got:  ", num,
                 ", expected between ", leftLim, " and ", rightLim, "."));
         } else {
             if(!(num >= leftLim && num <= rightLim)) {
-                return this;
+                return cast(This) this;
             }
         }
 
@@ -1300,16 +1300,16 @@ class Histogram : Plot {
             }
         }
 
-        return this;
+        return cast(This) this;
     }
 
     /**Add the contents of another Histogram to this one.  The boundaries and
      * numbers of bins must be the same.  This histogram's settings are
      * retained.
      */
-    Histogram put(const Histogram rhs) {
+    This put(this This)(const Histogram rhs) {
         if(rhs is null) {
-            return this;
+            return cast(This) this;
         }
 
         enforce(rhs.leftLim == this.leftLim && rhs.rightLim == this.rightLim,
@@ -1318,7 +1318,7 @@ class Histogram : Plot {
         nElem += rhs.nElem;
 
         fixBounds();
-        return this;
+        return cast(This) this;
     }
 
     /**Assumes the LineGraph input is a plot of a PDF that this histogram is
@@ -1328,7 +1328,7 @@ class Histogram : Plot {
      * If this Histogram is cumulative, assumes that the input LineGraph is
      * a CDF instead.
      */
-    typeof(this) scaleDistributionFunction(LineGraph g) {
+    This scaleDistributionFunction(this This)(LineGraph g) {
         if(isCumulative) {
             if(countsOrProbs == HistType.Counts) {
                 g.scaleY(nElem);
@@ -1343,29 +1343,29 @@ class Histogram : Plot {
             g.scaleY(scaleFactor);
         }
 
-        return this;
+        return cast(This) this;
     }
 
     /**Determine whether this object throws or ignores if it receives a number
      * outside its bounds via put.
      */
-    typeof(this) boundsBehavior(OutOfBounds behavior)  {
+    This boundsBehavior(this This)(OutOfBounds behavior)  {
         outOfBoundsBehavior = behavior;
-        return this;
+        return cast(This) this;
     }
 
     /**Set whether this histogram displays counts or probabilities.*/
-    typeof(this) histType(HistType newType) {
+    This histType(this This)(HistType newType) {
         countsOrProbs = newType;
         fixBounds();
-        return this;
+        return cast(This) this;
     }
 
     /**Determines whether this histogram is cumulative.*/
-    typeof(this) cumulative(bool newVal) {
+    This cumulative(this This)(bool newVal) {
         isCumulative = newVal;
         fixBounds();
-        return this;
+        return cast(This) this;
     }
 }
 
@@ -1401,9 +1401,9 @@ class FrequencyHistogram : Plot {
 
         immutable multiplier = plotHeight / (this.upperLim - this.lowerLim);
         immutable zeroPoint = toPixelsY(0);
-        auto brush = form.getBrush(barColor);
+        auto brush = form.getBrush(_barColor);
         scope(exit) doneWith(brush);
-        auto pen = form.getPen(barColor, 1);
+        auto pen = form.getPen(_barColor, 1);
         scope(exit) doneWith(pen);
 
         auto blackPen = form.getPen(getColor(0, 0, 0));
@@ -1433,14 +1433,14 @@ class FrequencyHistogram : Plot {
     }
 
     /**Controls the color of the bar.  Defaults to blue.*/
-    final Color barColor() {
+    final Color barColor()() {
         return _barColor;
     }
 
     /// Setter
-    final typeof(this) barColor(Color newColor) {
+    final This barColor(this This)(Color newColor) {
         _barColor = newColor;
-        return this;
+        return cast(This) this;
     }
 
     /**Create a FrequencyHistogram.  R must be an input range with elements
@@ -1588,8 +1588,8 @@ class HeatMap : Plot {
 
     private this() {
         // Set default colors.
-        coldColor = getColor(0, 0, 255);
-        hotColor = getColor(255, 0, 0);
+        _coldColor = getColor(0, 0, 255);
+        _hotColor = getColor(255, 0, 0);
     }
 
     private Color getCellColor(double val) {
@@ -1600,11 +1600,11 @@ class HeatMap : Plot {
 
         // Bug 4445:  roundTo!ubyte(255.0) throws.
         immutable red = cast(ubyte) roundTo!uint(
-            coldColor.r * compl + hotColor.r * val);
+            _coldColor.r * compl + _hotColor.r * val);
         immutable green = cast(ubyte) roundTo!uint(
-            coldColor.g * compl + hotColor.g * val);
+            _coldColor.g * compl + _hotColor.g * val);
         immutable blue = cast(ubyte) roundTo!uint(
-            coldColor.b * compl + hotColor.b * val);
+            _coldColor.b * compl + _hotColor.b * val);
 
         return getColor(red, green, blue);
     }
@@ -1684,25 +1684,25 @@ class HeatMap : Plot {
     private Color _hotColor;
 
     /** The color to use for small values.*/
-    final Color coldColor() {
+    final Color coldColor()() {
         return _coldColor;
     }
 
     /// Setter
-    final typeof(this) coldColor(Color newColor) {
+    final This coldColor(this This)(Color newColor) {
         _coldColor = newColor;
-        return this;
+        return cast(This) this;
     }
 
     /** The color to use for large values.*/
-    final Color hotColor() {
+    final Color hotColor()() {
         return _hotColor;
     }
 
     /// Setter.
-    final typeof(this) hotColor(Color newColor) {
+    final This hotColor(this This)(Color newColor) {
         _hotColor = newColor;
-        return this;
+        return cast(This) this;
     }
 
     /**Create a heat map from a matrix represented as a range of ranges.
@@ -1841,7 +1841,7 @@ class HeatScatter : HeatMap {
     }
 
     /**Add an element to the plot.*/
-    HeatScatter put(double x, double y) {
+    This put(this This)(double x, double y) {
         bool inBounds() {
             return (x >= leftLim && x <= rightLim && y >= lowerLim &&
             y <= upperLim);
@@ -1850,7 +1850,7 @@ class HeatScatter : HeatMap {
         if(outOfBoundsBehavior == OutOfBounds.Throw) {
             enforce(inBounds(), "Point out of bounds in HeatScatter.");
         } else if(!inBounds()) {
-            return this;
+            return cast(This) this;
         }
 
         uint xCoord = to!uint((x - leftLim) / cellWidth);
@@ -1866,16 +1866,16 @@ class HeatScatter : HeatMap {
         values[yCoord][xCoord]++;
         maxVal = max(maxVal, values[yCoord][xCoord]);
 
-        return this;
+        return cast(This) this;
     }
 
     /**Add another HeatScatter's data to this.  The boundaries and row and
      * column counts must be the same.  The settings from this HeatScatter are
      * preserved.
      */
-    HeatScatter put(const HeatScatter rhs) {
+    This put(this This)(const HeatScatter rhs) {
         if(rhs is null) {
-            return this;
+            return cast(This) this;
         }
         enforce(this.leftLim == rhs.leftLim && this.rightLim == rhs.rightLim &&
                 this.upperLim == rhs.upperLim && this.lowerLim == rhs.lowerLim
@@ -1887,7 +1887,7 @@ class HeatScatter : HeatMap {
             this.maxVal = max(this.values[row][col], this.maxVal);
         }
 
-        return this;
+        return cast(This) this;
     }
 
     /**Determine whether this object throws or ignores if it receives a number
@@ -1929,14 +1929,11 @@ class ScatterPlot : Plot {
 
         mixin(toPixels);
 
-        auto pen = form.getPen(pointColor);
-        scope(exit) doneWith(pen);
-
         auto font = getFont(plot2kill.util.defaultFont,
             10 + Figure.fontSizeAdjust);
         scope(exit) doneWith(font);
 
-        string writeThis = [cast(immutable) pointSymbol];
+        string writeThis = [cast(immutable) _pointSymbol];
 
         immutable measure = form.measureText(writeThis, font);
         immutable rectWidth = measure.width;
@@ -1952,7 +1949,7 @@ class ScatterPlot : Plot {
                 rectHeight
             );
 
-            form.drawClippedText(writeThis, font, pointColor, rect);
+            form.drawClippedText(writeThis, font, _pointColor, rect);
         }
     }
 
@@ -1961,31 +1958,31 @@ class ScatterPlot : Plot {
 
 
     /**The color of each point on the plot.*/
-    final Color pointColor() {
+    final Color pointColor()() {
         return _pointColor;
     }
 
     /// Setter.
-    final typeof(this) pointColor(Color newColor) {
+    final This pointColor(this This)(Color newColor) {
         _pointColor = newColor;
-        return this;
+        return cast(This) this;
     }
 
     /**The symbol that should be used on the plot.  x and o work pretty well.
      * The default is x.
      */
-    final char pointSymbol() {
+    final char pointSymbol()() {
         return _pointSymbol;
     }
 
     /// Setter
-    final typeof(this) pointSymbol(char newSymbol) {
+    final This pointSymbol(this This)(char newSymbol) {
         _pointSymbol = newSymbol;
-        return this;
+        return cast(This) this;
     }
 
     this() {
-        pointColor = getColor(0, 0, 0);
+        _pointColor = getColor(0, 0, 0);
     }
 
 
@@ -2105,7 +2102,7 @@ class LineGraph : Plot {
             }
         }
 
-        auto pen = form.getPen(lineColor, lineWidth);
+        auto pen = form.getPen(_lineColor, _lineWidth);
         scope(exit) doneWith(pen);
 
         foreach(i; 1..x.length) {
@@ -2126,37 +2123,37 @@ class LineGraph : Plot {
     private uint _lineWidth = 1;
 
     /**The color of the line.  The default is black.*/
-    final Color lineColor() {
+    final Color lineColor()() {
         return _lineColor;
     }
 
     /// Setter
-    final typeof(this) lineColor(Color newColor) {
+    final This lineColor(this This)(Color newColor) {
         _lineColor = newColor;
-        return this;
+        return cast(This) this;
     }
 
     /**The width of the line.  The default is 1.*/
-    final uint lineWidth() {
+    final uint lineWidth()() {
         return _lineWidth;
     }
 
     /// Setter
-    final typeof(this) lineWidth(uint newWidth) {
+    final This lineWidth(this This)(uint newWidth) {
         _lineWidth = newWidth;
-        return this;
+        return cast(This) this;
     }
 
     /**Error bar width, relative to the total width of the plot.  Must be
      * between 0 and 1.  If it's out of bounds, it will be set to the default
      * of 0.05.  If no error bars are to be drawn, this option is ignored.
      */
-    final double errorWidth() {
+    final double errorWidth()() {
         return _errorWidth;
     }
 
     /// Setter
-    final typeof(this) errorWidth(double newWidth) {
+    final This errorWidth(this This)(double newWidth) {
         if(!(newWidth >= 0 && newWidth <= 1)) {
             _errorWidth = defaultErrorWidth;
         } else {
@@ -2164,11 +2161,11 @@ class LineGraph : Plot {
         }
 
         fixBounds();
-        return this;
+        return cast(This) this;
     }
 
     private this() {
-        lineColor = getColor(0, 0, 0);
+        _lineColor = getColor(0, 0, 0);
     }
 
     /**Factory method for creating a LineGraph.  x and y must both be
@@ -2604,7 +2601,7 @@ unittest {
 class QQPlot : ScatterPlot {
     private this() {
         super();
-        lineColor = getColor(255, 0, 0);
+        _lineColor = getColor(255, 0, 0);
     }
 
     protected void drawPlot(
@@ -2622,7 +2619,7 @@ class QQPlot : ScatterPlot {
         if(max(lowerLim, leftLim) < min(upperLim, rightLim)) {
             mixin(toPixels);
 
-            auto pen = form.getPen(lineColor, lineWidth);
+            auto pen = form.getPen(_lineColor, _lineWidth);
             scope(exit) doneWith(pen);
 
             immutable lowerX = toPixelsX(max(lowerLim, leftLim));
@@ -2643,21 +2640,30 @@ class QQPlot : ScatterPlot {
     /**The color of the y = x line that indicates identical distributions.
      * The default is red.
      */
-    final Color lineColor() {
+    final Color lineColor()() {
         return _lineColor;
     }
 
     /// Setter
-    final typeof(this) lineColor(Color newColor) {
+    final This lineColor(this This)(Color newColor) {
         _lineColor = newColor;
-        return this;
+        return cast(This) this;
     }
+
+    private double _lineWidth = 2;
 
     /**The width of the line that indicates identical distributions.
      * The default is 2.
      */
-    uint lineWidth = 2;
+    final double lineWidth()() {
+        return _lineWidth;
+    }
 
+    /// Setter.
+    final This lineWidth(this This)(double newWidth) {
+        _lineWidth = newWidth;
+        return cast(This) this;
+    }
 
     /**Create a QQPlot.  dataRange must be an input range with elements
      * implicitly convertible to doubles.  quantileFunction must be a

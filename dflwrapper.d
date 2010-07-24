@@ -24,7 +24,6 @@ module plot2kill.dflwrapper;
 version(dfl) {
 
 import dfl.all;
-public import dfl.drawing : RFont;
 
 import plot2kill.util;
 import plot2kill.guiagnosticbase;
@@ -96,14 +95,22 @@ private:
     Rect roundedRect(double x, double y, double width, double height) {
         // This code is designed to make sure the right/bottom of the rectangle
         // always ends up as close as possible to where it was intended to,
-        // even if rounding fscks up the x/y coordinate.
-        immutable intX = roundTo!int(x);
-        immutable intY = roundTo!int(y);
+        // even if rounding fscks up the x/y coordinate, and to favor making
+        // the rectangle too big instead of too small since too big looks
+        // less bad.
 
-        // The ceil is because it generally looks better to overshoot than
-        // to undershoot and have a big gaping white gap laying around.
-        immutable intWidth = to!int(ceil(x + width - intX));
-        immutable intHeight = to!int(ceil(y + height - intY));
+        // Round down to make rectangle wider than it should be since overshoot
+        // is less severe aesthetically than undershoot.
+        immutable intX = to!int(x);
+        immutable intY = to!int(y);
+
+        immutable endX = x + width;
+        immutable endY = y + height;
+
+        // Since overshoot looks better than undershoot, we want the minimum
+        // value of width and height that will not give undershoot.
+        immutable intWidth = to!int(ceil(endX - intX));
+        immutable intHeight = to!int(ceil(endY - intY));
 
         return Rect(intX, intY, intWidth, intHeight);
     }
@@ -274,8 +281,8 @@ public:
     }
 
     /**Get a pen in a GUI framework-agnostic way.*/
-    final Pen getPen(Color color, int width = 1) {
-        return new Pen(color, width);
+    final Pen getPen(Color color, double width = 1) {
+        return new Pen(color, max(roundTo!int(width), 1));
     }
 
     void drawTo(Graphics context) {

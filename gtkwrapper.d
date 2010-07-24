@@ -479,7 +479,7 @@ public:
     }
 
     /*Get a pen in a GUI framework-agnostic way.*/
-    static Pen getPen(Color color, int width = 1) {
+    static Pen getPen(Color color, double width = 1) {
         return Pen(color, width);
     }
 

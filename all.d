@@ -36,7 +36,7 @@
 
 module plot2kill.all;
 
-public import plot2kill.figure, plot2kill.subplot;
+public import plot2kill.figure, plot2kill.subplot, plot2kill.guiagnosticbase;
 
 version(dfl) {
     public import plot2kill.dflwrapper;
