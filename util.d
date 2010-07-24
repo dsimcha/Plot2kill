@@ -136,6 +136,30 @@ double[] toDoubleArray(R)(R range) {
     return ret;
 }
 
+package bool nullOrInit(T)(T arg) {
+    static if(is(T == class)) {
+        return arg is null;
+    } else {
+        return arg == T.init;
+    }
+}
+
+// For drawing columnar text if there's no support for real rotated text.
+package string addNewLines(string input) {
+    if(input.empty) {
+        return null;
+    }
+
+    string ret;
+    foreach(dchar elem; input) {
+        ret ~= elem;
+        ret ~= '\n';
+    }
+
+    return ret[0..$ - 1];
+}
+
+
 package struct PlotPoint {
     double x;
     double y;
@@ -146,6 +170,13 @@ package struct PlotRect {
     double y;
     double width;
     double height;
+}
+
+void enforceSane(string file = __FILE__, int line = __LINE__)(PlotRect r) {
+    if(!(r.x >= 0 && r.y >= 0 && r.width >= 0 && r.height >= 0)) {
+        throw new Exception(text("Bad rectangle line ", line, " file ", file,
+            ":  ", r));
+    }
 }
 
 package struct PlotSize {
@@ -234,7 +265,10 @@ public:
     }
 };
 
-// This will probably grow somewhat, I'm making a mixin now in anticipation.
+/* This is the stuff for FigureBase that the GUI-specific parts need to know
+ * about, but that itself is not GUI-specific.  This should be mixed into
+ * the FigureBase implementation of all ports.
+ */
 enum string GuiAgnosticBaseMixin = q{
 protected:
     // These control where on the drawing object the figure is drawn.
@@ -245,7 +279,20 @@ protected:
     double _width = 0;
     double _height = 0;
 
-// Make sure that unless the users of this mixin declare otherwise,
-// accessibility is the usual default.
 public:
+
+    abstract void drawImpl() {}
+    abstract int defaultWindowWidth();
+    abstract int defaultWindowHeight();
+    abstract int minWindowWidth();
+    abstract int minWindowHeight();
+
+    final double width()  {
+        return _width;
+    }
+
+    final double height()  {
+        return _height;
+    }
+
 };

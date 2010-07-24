@@ -228,9 +228,10 @@ private:
     }
 
 protected:
-    // GTK reports the usable area as the size of the window, so these are 0.
-    enum horizontalBorderWidth = 0;
-    enum verticalBorderWidth = 0;
+    // Fonts tend to be different actual sizes on different GUI libs for a
+    // given nominal size. This adjusts for that factor when setting default
+    // fonts.
+    enum fontSizeAdjust = 0;
 
     Context context;
 
@@ -483,16 +484,6 @@ public:
         return Pen(color, width);
     }
 
-    final double width()  {
-        return _width;
-    }
-
-    final double height()  {
-        return _height;
-    }
-
-    abstract void drawImpl() {}
-
     void drawTo(Context context) {
         drawTo(context, this.width, this.height);
     }
@@ -503,6 +494,7 @@ public:
 
     // Allows drawing at an offset from the origin.
     void drawTo(Context context, PlotRect whereToDraw) {
+        enforceSane(whereToDraw);
         // Save the default class-level values, make the values passed in the
         // class-level values, call drawImpl(), then restore the default values.
         auto oldContext = this.context;
@@ -526,12 +518,6 @@ public:
         this.yOffset = whereToDraw.y;
         drawImpl();
     }
-
-    abstract int defaultWindowWidth();
-    abstract int defaultWindowHeight();
-    abstract int minWindowWidth();
-    abstract int minWindowHeight();
-
 
     /**Saves this figure to a file.  The file type can be one of either the
      * raster formats .png, .jpg, .tiff, and .bmp, or the vector formats

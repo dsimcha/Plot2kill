@@ -82,7 +82,7 @@ void main(string[] args)
     version(gtk) {
         hist.saveToFile("foo.svg");
     }
- //   hist.showAsMain();
+    hist.showAsMain();
 
     auto errs = [0.1, 0.2, 0.3, 0.4];
     auto linesWithErrors =
@@ -173,8 +173,10 @@ void main(string[] args)
         .title("2D Histogram")
         .xLabel("Normal(-2, 1) + Y[i]")
         .yLabel("Normal(1, 1)");
-    heatScatterFig.saveToFile("bar.png", "png", 640, 480);
-//  heatScatterFig.showAsMain();
+    version(gtk) {
+        heatScatterFig.saveToFile("bar.png", "png", 640, 480);
+    }
+  heatScatterFig.showAsMain();
 
     version(gtk) {
         enum string subplotY = "Pretty Rotated Text";
@@ -204,7 +206,4 @@ void main(string[] args)
     }}
     sp.showAsMain();
 
-    Histogram h;
-    auto fig = Figure(h);
-    fig.showAsMain();
 }}

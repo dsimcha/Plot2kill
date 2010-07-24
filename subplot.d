@@ -32,310 +32,30 @@
 module plot2kill.subplot;
 
 import plot2kill.figure;
-
 import plot2kill.util;
 
-// The Subplot window code is GUI-specific enough that I consider it the
-// lesser of two evils to have completely separate implementations for each
-// GUI lib and accept a small amount of duplication, rather than create a
-// rat's nest trying to abstract away the small amount of GUI-agnostic
-// logic that the Subplot contains.  Therefore, the proper way to port this
-// to a new GUI framework is clone and modify.
-//
-// Once the design of the Subplot window is pinned down a little better, it
-// might make sense to abstract some common functionality to a mixin, but
-// probably not to any more formal, OO-based abstraction.
-
-version(dfl) {
-
-import dfl.form, dfl.label, dfl.control, dfl.event, dfl.picturebox, dfl.base,
-    dfl.application;
-
-/**Allows for one or more subplots to be created in a single window.  Each
- * subplot is represented by a Figure.  Double-clicking on any subplot zooms
- * in on it.  Double-clicking again zooms out.
+/**This is the GUI-agnostic base mixin for a Subplot.  Everything documented
+ * here is available in the Subplot class implementation for whatever GUI
+ * toolkit you're using.
  *
- * Note:  When this class is passed a Figure, it assumes complete ownership of
- * that Figure and will feel free to mess around with its internal state.
+ * Subplot objects allows for one or more subplots to be created in a single
+ * window or a single file.  Each subplot is represented by a Figure.
+ * In the default plot window, double-clicking on any subplot zooms
+ * in on it.  Double-clicking again zooms out.
  *
  * Examples:
  * ---
- * auto hist = Histogram(someNumbers, 10);
- * auto histFig = new Figure(hist);
- * auto scatter = ScatterPlot(someNumbers, someMoreNumbers);
- * auto scatterFig = new Figure(scatter);
- * auto sub = new SubPlot(1, 2);  // 1 row, 2 columns.
+ * auto histFig = Histogram(someNumbers, 10).toFigure;
+ * auto scatterFig = ScatterPlot(someNumbers, someMoreNumbers).toFigure;
+ * auto sub = SubPlot(1, 2);  // 1 row, 2 columns.
  * sub.addPlot(histFig, 0, 0);  // Add the histogram in the 0th row, 0th column.
  * sub.addPlot(scatterFig, 0, 1);  // Ditto.
- * sub.show();
+ * sub.showAsMain();
  * ---
  */
-class Subplot : ContainerControl {
-    mixin(labelStuff);
-
-private:
-    // Fudge factors for the space that window borders take up.  TODO:
-    // Figure out how to get the actual numbers and use them instead of these
-    // stupid fudge factors.
-    enum verticalBorderSize = 40;
-    enum horizontalBorderSize = 10;
-
-    uint nRows;
-    uint nColumns;
-
-    int verticalMargin = 60;
-    int horizontalMargin = 60;
-
-    Figure[][] figs;
-    Figure zoomedFigure;
-
-    Label titleObj;
-    Label xLabelObj;
-    Label yLabelObj;
-
-    invariant() {
-        assert(figs.length == nRows);
-        foreach(row; figs) {
-            assert(row.length == nColumns);
-        }
-    }
-
-    void nullFontsToDefaults() {
-        if(titleFont == Font.init) {
-            titleFont = getFont(plot2kill.util.defaultFont, 18);
-            assert(titleFont);
-        }
-
-        if(xLabelFont == Font.init) {
-            xLabelFont = getFont(plot2kill.util.defaultFont, 14);
-            assert(xLabelFont);
-        }
-
-        if(yLabelFont == Font.init) {
-            yLabelFont = getFont(plot2kill.util.defaultFont, 14);
-            assert(yLabelFont);
-        }
-    }
-
-    void drawLabels() {
-        nullFontsToDefaults();
-
-        if(title.length == 0 && xLabel.length == 0) {
-            verticalMargin = 0;
-            xLabelObj.parent = null;
-            yLabelObj.parent = null;
-        } else {
-            verticalMargin = 30;
-            xLabelObj.text = xLabel;
-            titleObj.text = title;
-
-            xLabelObj.setBounds(0, height - verticalMargin - verticalBorderSize,
-                this.width, verticalMargin
-            );
-            titleObj.setBounds(0, 0, this.width, verticalMargin);
-            titleObj.parent = this;
-            xLabelObj.parent = this;
-        }
-
-        if(yLabel.length == 0) {
-            horizontalMargin = 0;
-            yLabelObj.parent = null;
-        } else {
-            horizontalMargin = 30;
-            yLabelObj.text = addNewlines(yLabel);
-            yLabelObj.setBounds(0, 0, horizontalMargin, this.height);
-            yLabelObj.parent = this;
-        }
-    }
-
-    void zoomInOn(Control c, EventArgs ea) {
-        if(zoomedFigure is null) {
-            zoomedFigure = cast(Figure) c;
-
-        } else {
-            zoomedFigure = null;
-        }
-
-        drawFigure();
-    }
-
-    void drawFigureZoomedOut() {
-        this.text = "Double-click a figure to zoom in on it.";
-        drawLabels();
-        immutable figWidth = (this.width -  horizontalBorderSize
-            - 2 * horizontalMargin) / nColumns;
-        immutable figHeight = (this.height - verticalBorderSize
-            - 2 * verticalMargin) / nRows;
-
-        foreach(rowIndex, row; figs) {
-            foreach(colIndex, fig; row) {
-                if(fig is null) {
-                    continue;
-                }
-
-                immutable xPos = colIndex * figWidth + horizontalMargin;
-                immutable yPos = rowIndex * figHeight + verticalMargin;
-                fig.parent = this;
-                fig.size = Size(figWidth, figHeight);
-                fig.location = Point(xPos, yPos);
-                fig.bringToFront();
-            }
-        }
-    }
-
-    void drawFigureZoomedIn() {
-        this.text = "Double-click again to zoom out.";
-
-        zoomedFigure.parent = this;
-        zoomedFigure.setBounds(0, 0,
-            width - horizontalBorderSize, height - verticalBorderSize);
-        zoomedFigure.bringToFront();
-    }
-
-
-    void resizeEvent(Control c, EventArgs ea) {
-        drawFigure();
-    }
-
-protected:
-
-    this(uint nRows, uint nColumns) {
-        enforce(nRows >= 1 && nColumns >= 1,
-            "Subplot figures must have at least 1 cell.  Can't create a " ~
-            " subplot of dimensions " ~ to!string(nRows) ~ "x" ~
-            to!string(nColumns) ~ "."
-        );
-
-        size = Size(1024 + horizontalBorderSize,
-                    768 + verticalBorderSize);
-
-        this.nRows = nRows;
-        this.nColumns = nColumns;
-
-        figs = new Figure[][](nRows, nColumns);
-        titleObj = new Label;
-        xLabelObj = new Label;
-        yLabelObj = new Label;
-
-        titleObj.textAlign = ContentAlignment.MIDDLE_CENTER;
-        xLabelObj.textAlign = ContentAlignment.MIDDLE_CENTER;
-        yLabelObj.textAlign = ContentAlignment.MIDDLE_CENTER;
-
-        resize ~= &resizeEvent;
-    }
-
-public:
-
-    /**Create an instance with nRows rows and nColumns columns.*/
-    static Subplot opCall(uint nRows, uint nColumns) {
-        return new Subplot(nRows, nColumns);
-    }
-
-    /**Add a figure to the subplot in the given row and column.  fig is passed
-     * in by reference, and the handle passed in is set to null.  This is
-     * to emphasize the fact that the Subplot class assumes ownership of the
-     * figure class and is free to modify the Figure's internal state.
-     *
-     * This function returns this to allow for a fluent interface.
-     */
-    Subplot addFigure(ref Figure fig, uint row, uint col) {
-        enforce(row < nRows && col < nColumns, std.conv.text(
-            "Can't add a plot to cell (",row, ", ", col, ") of a ", nRows,
-            "x", nColumns, " Subplot."));
-
-        // TODO:  Figure out why the double click event goes to the picture
-        // box and not to fig.
-        fig.doubleClick ~= &zoomInOn;
-        figs[row][col] = fig;
-        fig = null;
-
-        return this;
-    }
-
-    /// Convenience function in case fig isn't an lvalue.
-    final void addFigure(Figure fig, uint row, uint col) {
-        return addFigure(fig, row, col);
-    }
-
-    // Kludge:  Use columnar text for y label until we get some rotated text.
-    // TODO:  Get rid of this )#$* function.
-    static string addNewlines(string orig) {
-        string ret;
-        foreach(dchar c; orig[0..$ - 1]) {
-            ret ~= c;
-            ret ~= '\n';
-        }
-        ret ~= orig[$ - 1];
-        return ret;
-    }
-
-    /**Draw the figure, but don't display it.*/
-    void drawFigure() {
-        if(zoomedFigure is null) {
-            drawFigureZoomedOut();
-        } else {
-            drawFigureZoomedIn();
-        }
-    }
-
-    /**Redraws this control.  Useful as something to attach to a parent control.*/
-    void drawFigureEvent(Control c, EventArgs ea) {
-        drawFigure();
-    }
-
-    /**Sets this.size to parent.size and dedraws.  Again, useful for
-     * attaching to parent controls.
-     */
-    void parentResize(Control c, EventArgs ea) {
-        this.size = Size(parent.width, parent.height);
-        drawFigure();
-    }
-
-    /**Draw and display the figure as a main form.  This is useful in
-     * otherwise console-based apps that want to display a few plots.
-     * However, you can't have another main form up at the same time.
-     */
-    void showAsMain() {
-        auto mainForm = new Form;
-        mainForm.minimumSize = Size(800 + horizontalBorderSize,
-                                    600 + verticalBorderSize);
-        mainForm.size = this.size;
-        this.parent = mainForm;
-        mainForm.activated ~= &drawFigureEvent;
-        mainForm.resize ~= &parentResize;
-
-        auto ac = new ApplicationContext;
-        ac.mainForm = mainForm;
-        Application.run(ac);
-    }
-}
-}
-
-version(gtk) {
-import gtk.MainWindow, gtk.Label, gtk.Main, gtk.Widget, gtk.VBox, gtk.HBox,
-    gtk.DrawingArea, gtk.Table, gtk.Container, gtkc.gdktypes,
-    gdk.Drawable, gdk.Pixmap, gdk.Pixbuf, gdk.GC;
-
-/**Allows for one or more subplots to be created in a single window.  Each
- * subplot is represented by a Figure.  Double-clicking on any subplot zooms
- * in on it.  Double-clicking again zooms out.
- *
- * Note:  When this class is passed a Figure, it assumes complete ownership of
- * that Figure and will feel free to mess around with its internal state.
- *
- * Examples:
- * ---
- * auto hist = Histogram(someNumbers, 10);
- * auto histFig = new Figure(hist);
- * auto scatter = ScatterPlot(someNumbers, someMoreNumbers);
- * auto scatterFig = new Figure(scatter);
- * auto sub = new SubPlot(1, 2);  // 1 row, 2 columns.
- * sub.addPlot(histFig, 0, 0);  // Add the histogram in the 0th row, 0th column.
- * sub.addPlot(scatterFig, 0, 1);  // Ditto.
- * sub.show();
- * ---
- */
-class Subplot : FigureBase {
+template SubplotBase() {
+    // Using a mixin instead of inheritance here would have been too messy to
+    // debug.
 
     mixin(labelStuff);
 
@@ -359,19 +79,19 @@ private:
     }
 
     void nullFontsToDefaults() {
-        if(titleFont == Font.init) {
-            titleFont = getFont(plot2kill.util.defaultFont, 18);
-            assert(titleFont != Font.init);
+        if(nullOrInit(titleFont)) {
+            titleFont = getFont(plot2kill.util.defaultFont, 18 + fontSizeAdjust);
+            assert(!nullOrInit(titleFont));
         }
 
-        if(xLabelFont == Font.init) {
-            xLabelFont = getFont(plot2kill.util.defaultFont, 14);
-            assert(xLabelFont != Font.init);
+        if(nullOrInit(xLabelFont)) {
+            xLabelFont = getFont(plot2kill.util.defaultFont, 14 + fontSizeAdjust);
+            assert(!nullOrInit(xLabelFont));
         }
 
-        if(yLabelFont == Font.init) {
-            yLabelFont = getFont(plot2kill.util.defaultFont, 14);
-            assert(yLabelFont != Font.init);
+        if(nullOrInit(yLabelFont)) {
+            yLabelFont = getFont(plot2kill.util.defaultFont, 14 + fontSizeAdjust);
+            assert(!nullOrInit(yLabelFont));
         }
     }
 
@@ -406,13 +126,26 @@ private:
         }
 
         if(yLabel.length > 0) {
-            immutable textSize = measureText(yLabel, yLabelFont);
-            leftMargin = textSize.height + labelMargin;
-            drawRotatedText(
-                yLabel, yLabelFont, getColor(0, 0, 0),
-                PlotRect(labelMargin, 0, textSize.height, this.height),
-                TextAlignment.Center
-            );
+            version(noRotatedText) {
+                immutable textSize = measureText(yLabel, yLabelFont, 1);
+                immutable margin = (this.height - textSize.height) / 2;
+                leftMargin = textSize.width + labelMargin;
+                auto rect = PlotRect(10, margin,
+                    1, textSize.height
+                );
+
+                drawText(yLabel, yLabelFont, getColor(0, 0, 0), rect);
+            } else {
+                immutable textSize = measureText(yLabel, yLabelFont);
+                leftMargin = textSize.height + labelMargin;
+
+
+                drawRotatedText(
+                    yLabel, yLabelFont, getColor(0, 0, 0),
+                    PlotRect(labelMargin, 0, textSize.height, this.height),
+                    TextAlignment.Center
+                );
+            }
         }
     }
 
@@ -508,32 +241,59 @@ public:
         return 600;
     }
 
-    /**Create an instance with nRows rows and nColumns columns.*/
-    static Subplot opCall(uint nRows, uint nColumns) {
-        return new Subplot(nRows, nColumns);
-    }
-
-    /**Add a figure to the subplot in the given row and column.  fig is passed
-     * in by reference, and the handle passed in is set to null.  This is
-     * to emphasize the fact that the Subplot class assumes ownership of the
-     * figure class and is free to modify the Figure's internal state.
-     *
+    /**Add a figure to the subplot in the given row and column.
      * This function returns this to allow for a fluent interface.
      */
-    Subplot addFigure(ref Figure fig, uint row, uint col) {
+    Subplot addFigure(Figure fig, uint row, uint col) {
         enforce(row < nRows && col < nColumns, std.conv.text(
             "Can't add a plot to cell (",row, ", ", col, ") of a ", nRows,
             "x", nColumns, " Subplot."));
 
         figs[row][col] = fig;
-        fig = null;
-
         return this;
     }
+};
 
-    /// Convenience function in case fig isn't an lvalue.
-    final void addFigure(Figure fig, uint row, uint col) {
-        return addFigure(fig, row, col);
+version(dfl) {
+
+version = noRotatedText;
+
+import dfl.form, dfl.label, dfl.control, dfl.event, dfl.picturebox, dfl.base,
+    dfl.application;
+
+///
+class Subplot : FigureBase {
+    mixin SubplotBase;
+
+    /**Create an instance with nRows rows and nColumns columns.*/
+    static Subplot opCall(uint nRows, uint nColumns) {
+        return new Subplot(nRows, nColumns);
+    }
+
+    ///
+    override FigureControl toControl() {
+        return new FigureControl(this);
+    }
+
+    ///
+    override void showAsMain() {
+        Application.run(new DefaultPlotWindow(this.toControl));
+    }
+}
+}
+
+version(gtk) {
+
+import gtk.DrawingArea, gdk.Drawable, gtk.Widget;
+
+///
+class Subplot : FigureBase {
+
+    mixin SubplotBase;
+
+    /**Create an instance with nRows rows and nColumns columns.*/
+    static Subplot opCall(uint nRows, uint nColumns) {
+        return new Subplot(nRows, nColumns);
     }
 
     ///

@@ -71,10 +71,10 @@ private:
     bool userSetXAxis = false;
     bool userSetYAxis = false;
 
-    double topMargin;
-    double bottomMargin;
-    double leftMargin;
-    double rightMargin = 30;
+    double topMargin = 10;
+    double bottomMargin = 10;
+    double leftMargin = 10;
+    double rightMargin = 10;
 
     enum tickPixels = 10;
     double xTickLabelWidth;
@@ -137,7 +137,7 @@ private:
     mixin(toPixels);
 
     void drawTitle() {
-        if(titleFont == Font.init) {
+        if(nullOrInit(titleFont)) {
             return;
         }
 
@@ -148,7 +148,7 @@ private:
     }
 
     void drawXlabel() {
-        if(xLabelFont == Font.init) {
+        if(nullOrInit(xLabelFont)) {
             return;
         }
 
@@ -161,14 +161,14 @@ private:
     }
 
     void drawYlabel() {
-        if(yLabelFont == Font.init || yLabel.length == 0) {
+        if(nullOrInit(yLabelFont) || yLabel.length == 0) {
             return;
         }
 
         version(noRotatedText) {
             immutable textSize = measureText(yLabel, yLabelFont, 1);
             immutable margin = (this.height - textSize.height) / 2;
-            auto rect = Rect(10, margin,
+            auto rect = PlotRect(10, margin,
                 1, textSize.height
             );
 
@@ -228,7 +228,7 @@ private:
                 PlotPoint(wherePixels, this.height - bottomMargin));
         }
 
-        if(axesFont == Font.init) {
+        if(nullOrInit(axesFont)) {
             return;
         }
 
@@ -252,7 +252,7 @@ private:
             PlotPoint(leftMargin - tickPixels, this.height - wherePixels)
         );
 
-        if(axesFont == Font.init) {
+        if(nullOrInit(axesFont)) {
             return;
         }
 
@@ -287,6 +287,7 @@ private:
     in {
         assert(upper > lower, std.conv.text(lower, '\t', upper));
     } body {
+
         immutable diff = upper - lower;
 
         double tickWidth = 10.0 ^^ floor(log10(diff));
@@ -304,7 +305,6 @@ private:
         }
 
         double startPoint = ceil(lower / tickWidth) * tickWidth;
-
         do {
             // The tickWidth * 0.01 is a fudge factor to make the last tick
             // get drawn in the presence of rounding error.
@@ -339,26 +339,27 @@ private:
     }
 
     void nullFontsToDefaults() {
-        if(titleFont == Font.init) {
-            titleFont = getFont(plot2kill.util.defaultFont, 14);
+        if(nullOrInit(titleFont)) {
+            titleFont = getFont(plot2kill.util.defaultFont, 14 + fontSizeAdjust);
         }
-        if(xLabelFont == Font.init) {
-            xLabelFont = getFont(plot2kill.util.defaultFont, 14);
+        if(nullOrInit(xLabelFont)) {
+            xLabelFont = getFont(plot2kill.util.defaultFont, 14 + fontSizeAdjust);
         }
 
         version(noRotatedText) {
-            if(yLabelFont == Font.init) {
+            if(nullOrInit(yLabelFont)) {
                 // For now the default should be a fixed-width font to make the
                 // columnar text look half decent.
-                yLabelFont = getFont("Courier New", 12);
+                yLabelFont = getFont("Courier New", 12 + fontSizeAdjust);
             }
         } else {
-            if(yLabelFont == Font.init) {
-                yLabelFont = getFont(plot2kill.util.defaultFont, 14);
+            if(nullOrInit(yLabelFont)) {
+                yLabelFont = getFont
+                    (plot2kill.util.defaultFont, 14 + fontSizeAdjust);
             }
         }
-        if(axesFont == Font.init) {
-            axesFont = getFont(plot2kill.util.defaultFont, 12);
+        if(nullOrInit(axesFont)) {
+            axesFont = getFont(plot2kill.util.defaultFont, 12 + fontSizeAdjust);
         }
     }
 
@@ -704,13 +705,11 @@ public:
         auto whiteBrush = getBrush(getColor(255, 255, 255));
         fillRectangle(whiteBrush, 0, 0, this.width, this.height);
         doneWith(whiteBrush);
-
         // If this is not a valid Figure, leave a big blank white rectangle.
         // It beats crashing.
         if(!(leftLim < rightLim && lowerLim < upperLim)) {
             return;
         }
-
         axesPen = getPen(getColor(0, 0, 0), 2);
         scope(exit) doneWith(axesPen);
 
@@ -728,6 +727,7 @@ public:
             setupAxes(lowerLim, upperLim, yAxisLocations, yAxisText,
                 this.height, tickLabelHeight);
         }
+
         fixMargins();
 
         foreach(plot; plotData) {

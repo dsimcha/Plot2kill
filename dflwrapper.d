@@ -85,48 +85,34 @@ void doneWith(T)(T garbage) {
 /**The DFL-specific parts of the Figure class.  These include wrappers around
  * the subset of drawing functionality used by Plot2Kill.
  */
-class FigureBase : PictureBox {
-
+class FigureBase {
     mixin(GuiAgnosticBaseMixin);
 
 private:
-    // Fudge factors for the space that window borders take up.  TODO:
-    // Figure out how to get the actual numbers and use them instead of these
-    // stupid fudge factors.
-    enum verticalBorderSize = 40;
-    enum horizontalBorderSize = 10;
-
-    MemoryGraphics graphics;
-    Bitmap bmp;
-
     // This is indexed via a TextAlignment enum.
     TextFormat[3] textAlignments;
 
-    void resizeEvent(Control c, EventArgs ea) {
-        drawImpl();
-    }
+    Rect roundedRect(double x, double y, double width, double height) {
+        // This code is designed to make sure the right/bottom of the rectangle
+        // always ends up as close as possible to where it was intended to,
+        // even if rounding fscks up the x/y coordinate.
+        immutable intX = roundTo!int(x);
+        immutable intY = roundTo!int(y);
+        immutable intWidth = roundTo!int(x + width - intX);
+        immutable intHeight = roundTo!int(y + height - intY);
 
-    // Used only for default plot window.  Resizes this if parent resized.
-    void parentResize(Control c, EventArgs ea) {
-        immutable pwid = parent.width - horizontalBorderSize;
-        immutable pheight = parent.height - verticalBorderSize;
-
-        // Skip redraw if difference is negligible.  This speeds things up
-        // a lot.
-        if(abs(pwid - width) < 5 && abs(height - pheight) < 5) {
-            return;
-        }
-
-        this.size = Size(parent.width - horizontalBorderSize,
-                         parent.height - verticalBorderSize);
-        drawImpl();
+        return Rect(intX, intY, intWidth, intHeight);
     }
 
 protected:
-    this() {
-        size = Size(800 + verticalBorderSize, 600 + verticalBorderSize);
-        resize ~= &resizeEvent;
+    // Fonts tend to be different actual sizes on different GUI libs for a
+    // given nominal size. This adjusts for that factor when setting default
+    // fonts.
+    enum fontSizeAdjust = -2;
 
+    Graphics context;
+
+    this() {
         textAlignments[TextAlignment.Left] = new TextFormat;
         textAlignments[TextAlignment.Left].alignment
             = dfl.drawing.TextAlignment.LEFT;
@@ -147,29 +133,37 @@ public:
     // wrappers with the same compile-time interface.  These are final both
     // to avoid virtual call overhead and because overriding them would be
     // rather silly.
-    final void drawLine(Pen pen, int startX, int startY, int endX, int endY) {
-        graphics.drawLine(pen,
-            startX + xOffset, startY + yOffset,
-            endX + xOffset, endY + yOffset);
+    final void drawLine
+    (Pen pen, double startX, double startY, double endX, double endY) {
+        context.drawLine(pen,
+            roundTo!int(startX + xOffset), roundTo!int(startY + yOffset),
+            roundTo!int(endX + xOffset), roundTo!int(endY + yOffset)
+        );
     }
 
-    final void drawLine(Pen pen, Point start, Point end) {
+    final void drawLine(Pen pen, PlotPoint start, PlotPoint end) {
         this.drawLine(pen, start.x, start.y, end.x, end.y);
     }
 
-    final void drawRectangle(Pen pen, int x, int y, int width, int height) {
-        graphics.drawRectangle(pen, x + xOffset, y + yOffset, width, height);
+    final void drawRectangle
+    (Pen pen, double x, double y, double width, double height) {
+        auto r = roundedRect(x + xOffset, y + yOffset, width, height);
+        context.drawRectangle
+            (pen, r.x , r.y , r.width, r.height);
     }
 
-    final void drawRectangle(Pen pen, Rect r) {
+    final void drawRectangle(Pen pen, PlotRect r) {
         this.drawRectangle(pen, r.x, r.y, r.width, r.height);
     }
 
-    final void fillRectangle(Brush brush, int x, int y, int width, int height) {
-        graphics.fillRectangle(brush, x + xOffset, y + yOffset, width, height);
+    final void fillRectangle
+    (Brush brush, double x, double y, double width, double height) {
+        auto r = roundedRect(x + xOffset, y + yOffset, width, height);
+        context.fillRectangle
+            (brush, r.x, r.y, r.width, r.height);
     }
 
-    final void fillRectangle(Brush brush, Rect r) {
+    final void fillRectangle(Brush brush, PlotRect r) {
         this.fillRectangle(brush, r.x, r.y, r.width, r.height);
     }
 
@@ -177,44 +171,70 @@ public:
         string text,
         Font font,
         Color pointColor,
-        Rect rect,
+        PlotRect rect,
         TextAlignment alignment
     ) {
         auto offsetRect = Rect(
-            rect.x + xOffset, rect.y + yOffset, rect.width, rect.height);
-        graphics.drawText(
+            roundTo!int(rect.x + xOffset),
+            roundTo!int(rect.y + yOffset),
+            roundTo!int(rect.width),
+            roundTo!int(rect.height)
+        );
+        context.drawText(
             text, font, pointColor, offsetRect, textAlignments[alignment]);
+    }
+
+    // BUGS:  Draws columnar text, not rotated text.
+    final void drawRotatedText(
+        string text,
+        Font font,
+        Color pointColor,
+        PlotRect rect,
+        TextAlignment alignment
+    ) {
+        auto offsetRect = Rect(
+            roundTo!int(rect.x + xOffset),
+            roundTo!int(rect.y + yOffset),
+            roundTo!int(rect.width),
+            roundTo!int(rect.height)
+        );
+        context.drawText(
+            addNewLines(text), font, pointColor, offsetRect,
+            textAlignments[alignment]);
     }
 
     final void drawText(
         string text,
         Font font,
         Color pointColor,
-        Rect rect
+        PlotRect rect
     ) {
         auto offsetRect = Rect(
-            rect.x + xOffset, rect.y + yOffset, rect.width, rect.height);
-        graphics.drawText(text, font, pointColor, offsetRect);
+            roundTo!int(rect.x + xOffset),
+            roundTo!int(rect.y + yOffset),
+            roundTo!int(rect.width), roundTo!int(rect.height)
+        );
+        context.drawText(text, font, pointColor, offsetRect);
     }
 
     final Size measureText
-    (string text, Font font, int maxWidth, TextAlignment alignment) {
-        return
-            graphics.measureText(text, font, maxWidth, textAlignments[alignment]);
+    (string text, Font font, double maxWidth, TextAlignment alignment) {
+        return context.measureText(text, font, roundTo!int(maxWidth),
+            textAlignments[alignment]);
     }
 
     final Size measureText
     (string text, Font font, TextAlignment alignment) {
         return
-            graphics.measureText(text, font, textAlignments[alignment]);
+            context.measureText(text, font, textAlignments[alignment]);
     }
 
-    final Size measureText(string text, Font font, int maxWidth) {
-        return graphics.measureText(text, font, maxWidth);
+    final Size measureText(string text, Font font, double maxWidth) {
+        return context.measureText(text, font, roundTo!int(maxWidth));
     }
 
     final Size measureText(string text, Font font) {
-        return graphics.measureText(text, font);
+        return context.measureText(text, font);
     }
 
     // TODO:  Add support for stuff other than solid brushes.
@@ -229,50 +249,35 @@ public:
         return new Pen(color, width);
     }
 
-
-    abstract void drawImpl() {
-        this.setBounds(0, 0, width, height);
-        graphics = new MemoryGraphics(this.width, this.height);
-    }
-
-    final void doneDrawing() {
-        bmp = graphics.toBitmap;
-        this.image = bmp;
-    }
-
-    /**Draws the plots on this Figure.  Useful for attaching to parent.*/
-    void drawPlotEvent(Control c, EventArgs ea) {
-        drawImpl();
-    }
-
-    void drawTo(MemoryGraphics graphics) {
-        drawTo(graphics, this.width, this.height);
+    void drawTo(Graphics context) {
+        drawTo(context, this.width, this.height);
     }
 
     // Weird function overloading bugs.  This should be removed.
-    void drawTo(MemoryGraphics graphics, int width, int height) {
-        return drawTo(graphics, Rect(0, 0, width, height));
+    void drawTo(Graphics context, double width, double height) {
+        return drawTo(context, PlotRect(0, 0, width, height));
     }
 
     // Allows drawing at an offset from the origin.
-    void drawTo(MemoryGraphics graphics, Rect whereToDraw) {
+    void drawTo(Graphics context, PlotRect whereToDraw) {
+        enforceSane(whereToDraw);
         // Save the default class-level values, make the values passed in the
-        // class-level values, call drawImpl(), then restore the default values.
-        auto oldGraphics = this.graphics;
+        // class-level values, call draw(), then restore the default values.
+        auto oldContext = this.context;
         auto oldWidth = this._width;
         auto oldHeight = this._height;
         auto oldXoffset = this.xOffset;
         auto oldYoffset = this.yOffset;
 
         scope(exit) {
-            this.graphics = oldGraphics;
+            this.context = oldContext;
             this._height = oldHeight;
             this._width = oldWidth;
             this.xOffset = oldXoffset;
             this.yOffset = oldYoffset;
         }
 
-        this.graphics = graphics;
+        this.context = context;
         this._width = whereToDraw.width;
         this._height = whereToDraw.height;
         this.xOffset = whereToDraw.x;
@@ -280,22 +285,102 @@ public:
         drawImpl();
     }
 
-    /**Draw and display the figure as a main form.  This is useful in
-     * otherwise console-based apps that want to display a few plots.
-     * However, you can't have another main form up at the same time.
-     */
-    void showAsMain() {
-        auto f = new Form;
-        f.size = Size(this.width + horizontalBorderSize,
-                      this.height + verticalBorderSize);
-        f.minimumSize = Size(400 + verticalBorderSize, 300 + verticalBorderSize);
-        this.parent = f;
-        f.activated ~= &drawPlotEvent;
-        f.resize ~= &parentResize;
-        auto ac = new ApplicationContext;
-        ac.mainForm = f;
-        Application.run(f);
+    ///
+    FigureControl toControl() {
+        return new FigureControl(this);
     }
+
+    ///
+    void showAsMain() {
+        Application.run(new DefaultPlotWindow(this.toControl));
+    }
+}
+
+class FigureControl : PictureBox {
+private:
+    FigureBase _figure;
+
+package:
+    this(FigureBase fig) {
+        this._figure = fig;
+        this.size = Size(fig.minWindowWidth, fig.minWindowHeight);
+    }
+
+    void parentResize(Control c, EventArgs ea) {
+        // Fudge factors for the space that window borders take up.  TODO:
+        // Figure out how to get the actual numbers and use them instead of these
+        // stupid fudge factors.
+        enum verticalBorderSize = 40;
+        enum horizontalBorderSize = 10;
+
+        immutable pwid = parent.width - horizontalBorderSize;
+        immutable pheight = parent.height - verticalBorderSize;
+
+        // Skip redraw if difference is negligible.  This speeds things up
+        // a lot.
+        if(abs(pwid - width) < 5 && abs(height - pheight) < 5) {
+            return;
+        }
+
+        this.size = Size(parent.width - horizontalBorderSize,
+                         parent.height - verticalBorderSize);
+
+        draw();
+    }
+
+public:
+    /// Event handler to redraw the figure.
+    void drawFigureEvent(Control c, EventArgs ea) {
+        draw();
+    }
+
+    /**Get the underlying FigureBase object.*/
+    final FigureBase figure() @property {
+        return _figure;
+    }
+
+    ///
+    void draw() {
+        this.setBounds(0, 0, this.width, this.height);
+        auto context = new MemoryGraphics(this.width, this.height);
+
+        figure.drawTo(context, this.width, this.height);
+        auto bmp = context.toBitmap;
+        this.image = bmp;
+    }
+}
+
+///
+class DefaultPlotWindow : Form {
+private:
+    // Fudge factors for the space that window borders take up.  TODO:
+    // Figure out how to get the actual numbers and use them instead of these
+    // stupid fudge factors.
+    enum verticalBorderSize = 40;
+    enum horizontalBorderSize = 10;
+
+    FigureControl control;
+
+public:
+    ///
+    this(FigureControl control) {
+        control.dock = DockStyle.FILL;
+        this.control = control;
+        control.size = Size(
+            control.figure.defaultWindowWidth,
+            control.figure.defaultWindowHeight
+        );
+
+        this.size = Size(control.width, control.height);
+        this.minimumSize =
+            Size(400 + verticalBorderSize, 300 + verticalBorderSize);
+
+        this.resize ~= &control.parentResize;
+        this.activated ~= &control.drawFigureEvent;
+        control.parent = this;
+        control.bringToFront();
+    }
+}
 }
 
 // Bugs:  Doesn't work at all.  I have no idea why.
@@ -357,4 +442,4 @@ private class ImplicitMain {
 }
 }
 
-}
+
