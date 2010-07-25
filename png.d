@@ -28,7 +28,9 @@
  * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS IN THE SOFTWARE.
  */
- module plot2kill.png;
+module plot2kill.png;
+
+version(dfl) {
 
 import plot2kill.util;
 import core.stdc.stdlib : malloc, free;
@@ -355,4 +357,6 @@ uint update_crc(in uint crc, in ubyte[] buf){
 uint crc(in string lol, in ubyte[] buf){
 	uint c = update_crc(0xffffffffL, cast(ubyte[]) lol);
 	return update_crc(c, buf) ^ 0xffffffffL;
+}
+
 }
