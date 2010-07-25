@@ -368,6 +368,14 @@ public:
     }
 }
 
+// Fudge factors for the space that window borders take up.
+//
+// TODO:
+// Figure out how to get the actual numbers and use them instead of these
+// stupid fudge factors, though I couldn't find any API in DFL to do that.
+private enum verticalBorderSize = 38;
+private enum horizontalBorderSize = 16;
+
 class FigureControl : PictureBox {
 private:
     FigureBase _figure;
@@ -379,11 +387,7 @@ package:
     }
 
     void parentResize(Control c, EventArgs ea) {
-        // Fudge factors for the space that window borders take up.  TODO:
-        // Figure out how to get the actual numbers and use them instead of these
-        // stupid fudge factors.
-        enum verticalBorderSize = 40;
-        enum horizontalBorderSize = 10;
+
 
         immutable pwid = parent.width - horizontalBorderSize;
         immutable pheight = parent.height - verticalBorderSize;
@@ -425,13 +429,33 @@ public:
 ///
 class DefaultPlotWindow : Form {
 private:
-    // Fudge factors for the space that window borders take up.  TODO:
-    // Figure out how to get the actual numbers and use them instead of these
-    // stupid fudge factors.
-    enum verticalBorderSize = 40;
-    enum horizontalBorderSize = 10;
-
     FigureControl control;
+    enum string fileFilter = "BMP files (*.bmp)|*.bmp";
+
+    // Brings up a save menu when the window is right clicked on.
+    void rightClickSave(Control c, MouseEventArgs ea) {
+        if(ea.button != MouseButtons.RIGHT) {
+            return;
+        }
+
+        auto dialog = new SaveFileDialog;
+        dialog.overwritePrompt = true;
+        dialog.filter = fileFilter;
+        dialog.validateNames = true;
+        dialog.showDialog(this);
+
+        // For now the only choice is bmp.  Eventually we hope to support png.
+        if(dialog.fileName.length == 0) {
+            // User hit cancel.
+            return;
+        }
+
+        control.figure.saveToFile(
+            dialog.fileName,
+            control.width,
+            control.height
+        );
+    }
 
 public:
     ///
@@ -443,13 +467,17 @@ public:
             control.figure.defaultWindowHeight
         );
 
-        this.size = Size(control.width, control.height);
+        this.size = Size(
+            control.width + horizontalBorderSize,
+            control.height + verticalBorderSize
+        );
         this.minimumSize =
-            Size(control.figure.minWindowWidth + verticalBorderSize,
+            Size(control.figure.minWindowWidth + horizontalBorderSize,
                  control.figure.minWindowHeight + verticalBorderSize);
 
         this.resize ~= &control.parentResize;
         this.activated ~= &control.drawFigureEvent;
+        control.mouseDown ~= &rightClickSave;
         control.parent = this;
         control.bringToFront();
     }
@@ -465,7 +493,14 @@ import std.c.stdlib : malloc, free;
 
 // Get the bitmap as an array of pixels.
 Pixel[] getPixels(MemoryGraphics graphics) {
-    auto pixels = new Pixel[graphics.width * graphics.height];
+    // Calculate bitmap padding.  Bitmaps require the number of bytes per line
+    // to be divisible by 4.
+    int paddingBits;
+    while((paddingBits + graphics.width * 3) % 4 > 0) {
+        paddingBits++;
+    }
+    auto pixels = new byte[graphics.height * (graphics.width * 3 + paddingBits)];
+
 
 	BITMAPINFO	bitmapInfo;
     with (bitmapInfo.bmiHeader) {
@@ -486,7 +521,22 @@ Pixel[] getPixels(MemoryGraphics graphics) {
         &bitmapInfo,
         DIB_RGB_COLORS
     );
-    return pixels;
+
+    if(paddingBits > 0) {
+        // Remove padding bits.
+        size_t toIndex, fromIndex;
+        foreach(row; 0..graphics.height) {
+            foreach(i; 0..graphics.width * 3) {
+                pixels[toIndex++] = pixels[fromIndex++];
+            }
+
+            foreach(i; 0..paddingBits) {
+                fromIndex++;
+            }
+        }
+    }
+
+    return (cast(Pixel*) pixels.ptr)[0..graphics.width * graphics.height];
 }
 
 extern(Windows) int GetDIBits(

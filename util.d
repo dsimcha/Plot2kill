@@ -197,7 +197,7 @@ version(dfl) {
         immutable ubyte[2] colorPlanes = [0x1, 0];
         immutable ubyte[2] bitsPerPixel = [0x18, 0];
         immutable ubyte[4] noCompression = [0, 0, 0, 0];
-        immutable ubyte[4] hRes = [0x13, 0x0B, 0, 0];
+        immutable ubyte[4] hRes = [0, 0, 0, 0];
         immutable ubyte[4] vRes = hRes;
         immutable ubyte[4] paletteColors = [0, 0, 0, 0];
         immutable ubyte[4] importantColors = [0, 0, 0, 0];
@@ -237,6 +237,8 @@ version(dfl) {
 //
 //        Only supports 24-bit bitmaps.
 void writeBitmap(Pixel)(Pixel[] pix, File handle, int width, int height) {
+    enforce(height > 0);
+    enforce(width > 0);
     enforce(pix.length == width * height);
 
     // TODO:  Make this support stuff other than little endian.
@@ -244,11 +246,12 @@ void writeBitmap(Pixel)(Pixel[] pix, File handle, int width, int height) {
         return (cast(ubyte*) &i)[0..I.sizeof];
     }
 
-    int rowSizeAligned = width * 3;  // Rows have to be 4-byte aligned.
-    int paddingBits = 0;
-    while(rowSizeAligned % 4 > 0) {
+    immutable rowSizeRaw = width * 3;
+    int rowSizeAligned = rowSizeRaw;  // Rows have to be 4-byte aligned.
+    int paddingBytes = 0;
+    while(rowSizeAligned % 4 != 0) {
         rowSizeAligned++;
-        paddingBits++;
+        paddingBytes++;
     }
 
     immutable int bitmapDataSize = rowSizeAligned * height;
@@ -281,7 +284,7 @@ void writeBitmap(Pixel)(Pixel[] pix, File handle, int width, int height) {
             buf.rawWrite(toUbyteArr(pixel.r));
         }
 
-        foreach(i; 0..paddingBits) {
+        foreach(i; 0..paddingBytes) {
             buf.rawWrite(zeroUbyte[]);
         }
     }

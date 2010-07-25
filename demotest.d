@@ -43,7 +43,7 @@ import std.conv, std.contracts, std.algorithm, std.typecons,
 // These aren't formal unittests, but they exercise the basic functionality.
 // Most require dstats.
 version(test) {
-import plot2kill.all;
+import plot2kill.all, plot2kill.util;
 
 version(gtk) {
     import gtk.Main, cairo.SvgSurface, cairo.Context;
