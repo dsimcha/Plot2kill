@@ -455,7 +455,7 @@ public:
     }
 }
 
-//private:
+private:
 // This stuff is an attempt at providing support for saving DFL plots to
 // bitmaps.  It borrows from Tomasz Stachowiak's excellent DirectBitmap code,
 // which was licensed under the also excellent WTFPL.

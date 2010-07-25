@@ -412,10 +412,10 @@ public:
     }
 
     bool clipLine(ref double x1, ref double y1, ref double x2, ref double y2) {
-        immutable topPixel = topMargin;
-        immutable bottomPixel = this.height - bottomMargin;
-        immutable leftPixel = leftMargin;
-        immutable rightPixel = this.width - rightMargin;
+        immutable topPixel = topMargin + 1;
+        immutable bottomPixel = this.height - bottomMargin - 1;
+        immutable leftPixel = leftMargin + 1;
+        immutable rightPixel = this.width - rightMargin - 1;
         if(between(x1, leftPixel, rightPixel) &&
            between(x2, leftPixel, rightPixel) &&
            between(y1, topPixel, bottomPixel) &&
