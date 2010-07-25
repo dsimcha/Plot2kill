@@ -1,5 +1,5 @@
 DFL does not natively support rotated fonts, which are kind of essential for a plotting library.
-If you want rotated fonts when usint the DFL backend, cut and paste the following class into the 
+If you want rotated fonts when using the DFL backend, cut and paste the following class into the 
 bottom of drawing.d in whatever directory DFL lives (by default it lives in the /import/dfl 
 subdirectory of your DMD directory).  Then, recompile DFL and Plot2Kill.  Through some compile time 
 magic (static if statements), Plot2Kill will detect the presence of RFont and start rendering pretty 

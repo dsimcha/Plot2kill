@@ -48,7 +48,6 @@ import plot2kill.all;
 version(gtk) {
     import gtk.Main, cairo.SvgSurface, cairo.Context;
 }
-
 import dstats.all, std.stdio;
 void main(string[] args)
 {
@@ -81,7 +80,10 @@ void main(string[] args)
 
     version(gtk) {
         hist.saveToFile("foo.svg");
+    } else {
+        hist.saveToFile("foo.bmp");
     }
+
     hist.showAsMain();
 
     auto errs = [0.1, 0.2, 0.3, 0.4];
@@ -171,7 +173,10 @@ void main(string[] args)
 
     version(gtk) {
         heatScatterFig.saveToFile("bar.png", "png", 640, 480);
+    } else {
+        heatScatterFig.saveToFile("bar.bmp", 640, 480);
     }
+
   heatScatterFig.showAsMain();
 
     version(gtk) {
@@ -198,11 +203,14 @@ void main(string[] args)
         .yLabel(subplotY)
         .xLabel("Boring X-Axis Label");
 
-    version(gtk) {{
+    version(gtk) {
         sp.saveToFile("sp.png", 1280, 1024);
         sp.saveToFile("sp.pdf", 1280, 1024);
+        sp.saveToFile("sp.svg", 1280, 1024);
 
-    }}
+    } else {
+        sp.saveToFile("sp.bmp", 1280, 1024);
+    }
     sp.showAsMain();
 
 }}

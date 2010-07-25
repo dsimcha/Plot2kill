@@ -321,6 +321,42 @@ public:
         drawImpl();
     }
 
+    /**Save this figure to a file.  Currently, the only format supported is
+     * .bmp.  When this situation improves, the extension of the file will
+     * be used to determine what format to use.  The width and height parameters
+     * allow you to specify explicit width and height parameters for the image
+     * file.  If width and height are left at their default values
+     * of 0, the default width and height of the subclass being saved will
+     * be used.
+     *
+     * Note:  The width and height parameters are provided as doubles for
+     *        consistency with backends that support vector formats.  These
+     *        are simply rounded to the nearest integer for the DFL backend.
+     */
+    void saveToFile(string filename, double width = 0, double height = 0) {
+        enforce(width >= 0 && height >= 0);
+
+        if(width == 0 || height == 0) {
+            width = this.defaultWindowWidth;
+            height = this.defaultWindowHeight;
+        }
+
+        immutable iWidth = roundTo!int(width);
+        immutable iHeight = roundTo!int(height);
+
+        auto graphics = new MemoryGraphics(iWidth, iHeight);
+        scope(exit) doneWith(graphics);
+
+        this.drawTo(graphics, iWidth, iHeight);
+        File handle = File(filename, "wb");
+        scope(exit) handle.close();
+
+        auto pix = getPixels(graphics);
+        scope(exit) GC.free(cast(void*) pix.ptr);
+
+        writeBitmap(pix, handle, iWidth, iHeight);
+    }
+
     ///
     FigureControl toControl() {
         return new FigureControl(this);
@@ -418,7 +454,62 @@ public:
         control.bringToFront();
     }
 }
+
+//private:
+// This stuff is an attempt at providing support for saving DFL plots to
+// bitmaps.  It borrows from Tomasz Stachowiak's excellent DirectBitmap code,
+// which was licensed under the also excellent WTFPL.
+
+import dfl.internal.winapi;
+import std.c.stdlib : malloc, free;
+
+// Get the bitmap as an array of pixels.
+Pixel[] getPixels(MemoryGraphics graphics) {
+    auto pixels = new Pixel[graphics.width * graphics.height];
+
+	BITMAPINFO	bitmapInfo;
+    with (bitmapInfo.bmiHeader) {
+        biSize = bitmapInfo.bmiHeader.sizeof;
+        biWidth = graphics.width;
+        biHeight = graphics.height;
+        biPlanes = 1;
+        biBitCount = 24;
+        biCompression = BI_RGB;
+    }
+
+    GetDIBits(
+        graphics.handle,
+        graphics.hbitmap,
+        0,
+        graphics.height,
+        pixels.ptr,
+        &bitmapInfo,
+        DIB_RGB_COLORS
+    );
+    return pixels;
 }
+
+extern(Windows) int GetDIBits(
+  HDC hdc,           // handle to DC
+  HBITMAP hbmp,      // handle to bitmap
+  UINT uStartScan,   // first scan line to set
+  UINT cScanLines,   // number of scan lines to copy
+  LPVOID lpvBits,    // array for bitmap bits
+  LPBITMAPINFO lpbi, // bitmap data buffer
+  UINT uUsage        // RGB or palette index
+);
+
+
+enum UINT DIB_RGB_COLORS = 0;
+enum UINT BI_RGB = 0;
+
+struct Pixel {
+	align(1) {
+		ubyte b, g, r;
+	}
+}
+static assert (Pixel.sizeof == 3);
+
 
 // Bugs:  Doesn't work at all.  I have no idea why.
 version(none) {
@@ -480,3 +571,4 @@ private class ImplicitMain {
 }
 
 
+}

@@ -33,7 +33,7 @@
 module plot2kill.util;
 
 public import std.conv, std.math, std.array, std.range, std.algorithm,
-    std.contracts, std.traits, std.stdio, std.string;
+    std.contracts, std.traits, std.stdio, std.string, core.memory;
 
 version(Windows) {
     // This should be available on all 32-bit versions of Windows.  It was
@@ -184,3 +184,108 @@ package struct PlotSize {
     double height;
 }
 
+version(dfl) {
+    private {
+        static import core.stdc.stdlib;  // For malloc, free.
+
+        // Used for writeBitmap.  This stuff was obtained from Wikipedia's
+        // documentation of the BMP file format.
+        immutable ubyte[2] magicNum = [0x42, 0x4D];
+        immutable ubyte[4] wasteSpace = [0, 0, 0, 0];
+        immutable ubyte[4] offset = [0x36, 0, 0, 0];
+        immutable ubyte[4] headerBytesLeft = [0x28, 0, 0, 0];
+        immutable ubyte[2] colorPlanes = [0x1, 0];
+        immutable ubyte[2] bitsPerPixel = [0x18, 0];
+        immutable ubyte[4] noCompression = [0, 0, 0, 0];
+        immutable ubyte[4] hRes = [0x13, 0x0B, 0, 0];
+        immutable ubyte[4] vRes = hRes;
+        immutable ubyte[4] paletteColors = [0, 0, 0, 0];
+        immutable ubyte[4] importantColors = [0, 0, 0, 0];
+        immutable ubyte[1] zeroUbyte = [0];
+        enum headerSize = 54;
+
+        // Since writing everything directly to a file is too slow, we write
+        // to this buffer and then output this buffer to a file in one go.
+        struct Buf {
+            ubyte[] arr;
+            size_t writeIndex;
+
+            this(int size) {
+                arr = (cast(ubyte*) core.stdc.stdlib.malloc(size))[0..size];
+            }
+
+            @disable this(this) {}
+
+            ~this() {
+                core.stdc.stdlib.free(cast(void*) arr.ptr);
+            }
+
+            void rawWrite(const ubyte[] writeThis) {
+                assert(writeThis.length <= arr.length - writeIndex);
+                arr[writeIndex..writeIndex + writeThis.length] = writeThis[];
+                writeIndex += writeThis.length;
+            }
+        }
+    }
+}
+
+// Write an arraay of pixels to a .bmp file.  Used to implement saving on DFL.
+//
+// BUGS:  Since for now this is only for saving on DFL, which is tied to
+//        Windows, this function assumes it will be running on a little
+//        endian platform.
+//
+//        Only supports 24-bit bitmaps.
+void writeBitmap(Pixel)(Pixel[] pix, File handle, int width, int height) {
+    enforce(pix.length == width * height);
+
+    // TODO:  Make this support stuff other than little endian.
+    static ubyte[] toUbyteArr(I)(ref I i) {
+        return (cast(ubyte*) &i)[0..I.sizeof];
+    }
+
+    int rowSizeAligned = width * 3;  // Rows have to be 4-byte aligned.
+    int paddingBits = 0;
+    while(rowSizeAligned % 4 > 0) {
+        rowSizeAligned++;
+        paddingBits++;
+    }
+
+    immutable int bitmapDataSize = rowSizeAligned * height;
+    immutable int fileSize = bitmapDataSize + headerSize;
+
+    auto buf = Buf(fileSize);
+
+    buf.rawWrite(magicNum[]);
+    buf.rawWrite(toUbyteArr(fileSize));
+    buf.rawWrite(wasteSpace[]);
+    buf.rawWrite(offset[]);
+    buf.rawWrite(headerBytesLeft[]);
+    buf.rawWrite(toUbyteArr(width));
+    buf.rawWrite(toUbyteArr(height));
+    buf.rawWrite(colorPlanes[]);
+    buf.rawWrite(bitsPerPixel[]);
+    buf.rawWrite(noCompression[]);
+    buf.rawWrite(toUbyteArr(bitmapDataSize));
+    buf.rawWrite(hRes[]);
+    buf.rawWrite(vRes[]);
+    buf.rawWrite(paletteColors[]);
+    buf.rawWrite(importantColors[]);
+
+    // Start of bitmap data.
+    foreach(row; 0..height) {
+        auto rowData = pix[width * row..width * (row + 1)];
+        foreach(pixel; rowData) {
+            buf.rawWrite(toUbyteArr(pixel.b));
+            buf.rawWrite(toUbyteArr(pixel.g));
+            buf.rawWrite(toUbyteArr(pixel.r));
+        }
+
+        foreach(i; 0..paddingBits) {
+            buf.rawWrite(zeroUbyte[]);
+        }
+    }
+
+    handle.rawWrite(buf.arr);
+    handle.flush();
+}
