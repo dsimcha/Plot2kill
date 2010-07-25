@@ -256,7 +256,7 @@ class Subplot : SubplotBase {
 
     ///
     override FigureControl toControl() {
-        return new FigureControl(this);
+        return new SubplotControl(this);
     }
 
     ///
@@ -276,6 +276,7 @@ package class SubplotControl : FigureControl {
         super(sp);
        // this.doubleClick ~= &zoomEvent;
         this.size = Size(1024, 768);
+        this.mouseDown ~= &zoomEvent;
     }
 
     /* Returns the FigureBase, downcast to a Subplot.  This is safe because our
@@ -311,30 +312,27 @@ package class SubplotControl : FigureControl {
         }
     }
 
-//    // Handles zooming in on double click.
-//    void zoomEvent(Control c, EventArgs ea) {
-//        auto sp = subplot();
-//
-//        with(sp) {
-//            if(press.type != GdkEventType.DOUBLE_BUTTON_PRESS
-//               || press.button != 1) {
-//                return false;
-//            }
-//
-//            if(zoomedFigure is null) {
-//                auto toZoom = getFigureAt(press.x, press.y);
-//                if(toZoom !is null) {
-//                    zoomedFigure = toZoom;
-//                    draw();
-//                }
-//            } else {
-//                zoomedFigure = null;
-//                draw();
-//            }
-//
-//            return true;
-//        }
-//    }
+    // Handles zooming in on double click.
+    void zoomEvent(Control c, MouseEventArgs ea) {
+        auto sp = subplot();
+
+        if(ea.button != MouseButtons.LEFT || ea.clicks != 2) {
+            return;
+        }
+
+        with(sp) {
+            if(zoomedFigure is null) {
+                auto toZoom = getFigureAt(ea.x, ea.y);
+                if(toZoom !is null) {
+                    zoomedFigure = toZoom;
+                    draw();
+                }
+            } else {
+                zoomedFigure = null;
+                draw();
+            }
+        }
+    }
 }
 
 }
