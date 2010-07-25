@@ -495,12 +495,11 @@ import std.c.stdlib : malloc, free;
 Pixel[] getPixels(MemoryGraphics graphics) {
     // Calculate bitmap padding.  Bitmaps require the number of bytes per line
     // to be divisible by 4.
-    int paddingBits;
-    while((paddingBits + graphics.width * 3) % 4 > 0) {
-        paddingBits++;
+    int paddingBytes;
+    while((paddingBytes + graphics.width * 3) % 4 > 0) {
+        paddingBytes++;
     }
-    auto pixels = new byte[graphics.height * (graphics.width * 3 + paddingBits)];
-
+    auto pixels = new byte[graphics.height * (graphics.width * 3 + paddingBytes)];
 
 	BITMAPINFO	bitmapInfo;
     with (bitmapInfo.bmiHeader) {
@@ -512,7 +511,7 @@ Pixel[] getPixels(MemoryGraphics graphics) {
         biCompression = BI_RGB;
     }
 
-    GetDIBits(
+    int result = GetDIBits(
         graphics.handle,
         graphics.hbitmap,
         0,
@@ -522,7 +521,9 @@ Pixel[] getPixels(MemoryGraphics graphics) {
         DIB_RGB_COLORS
     );
 
-    if(paddingBits > 0) {
+    enforce(result == graphics.height, "Reading bitmap pixels failed.");
+
+    if(paddingBytes > 0) {
         // Remove padding bits.
         size_t toIndex, fromIndex;
         foreach(row; 0..graphics.height) {
@@ -530,9 +531,7 @@ Pixel[] getPixels(MemoryGraphics graphics) {
                 pixels[toIndex++] = pixels[fromIndex++];
             }
 
-            foreach(i; 0..paddingBits) {
-                fromIndex++;
-            }
+            fromIndex += paddingBytes;
         }
     }
 
