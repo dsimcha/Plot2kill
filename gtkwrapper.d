@@ -533,6 +533,12 @@ public:
      */
     void saveToFile
     (string filename, string type, double width = 0, double height = 0) {
+        // User friendliness:  Remove . if it was included, don't be case sens.
+        type = tolower(type);
+        if(!type.empty && type.front == '.') {
+            type.popFront();
+        }
+
         if(width == 0 || height == 0) {
             width = this.defaultWindowWidth;
             height = this.defaultWindowHeight;
@@ -551,18 +557,12 @@ public:
      * and defaults to .png if no valid file format extension is found.
      */
     void saveToFile(string filename, double width = 0, double height = 0) {
-        auto dotIndex = std.string.lastIndexOf(filename, '.');
-        string type;
-        if(dotIndex == filename.length - 1 || dotIndex == -1) {
-            type = "png";
-        } else {
-            type = filename[dotIndex + 1..$];
-        }
+        auto type = tolower(getExt(filename));
 
         try {
             saveToFile(filename, type, width, height);
         } catch {
-            // Default to svg.
+            // Default to png.
             saveToFile(filename, "png", width, height);
         }
     }
@@ -661,21 +661,41 @@ if(is(Base == gtk.Window.Window) || is(Base == gtk.MainWindow.MainWindow)) {
         // enum, feel free.
         enum rightClick = 3;
 
+        bool isValidExt(string ext) {
+            foreach(t; saveTypes) {
+                if(ext == t[2..$]) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
 
         void saveDialogResponse(int response, Dialog d) {
             auto fc = cast(FileChooserDialog) d;
             assert(fc);
 
-            if(response == GtkResponseType.GTK_RESPONSE_OK) {
-                string name = fc.getFilename();
-                auto fileType = fc.getFilter().getName();
-
-                widget.figure.saveToFile
-                    (name, fileType, widget.getWidth, widget.getHeight);
+            if(response != GtkResponseType.GTK_RESPONSE_OK) {
                 d.destroy();
-            } else {
-                d.destroy();
+                return;
             }
+
+            string name = fc.getFilename();
+            auto ext = tolower(getExt(name));
+
+            string fileType;
+            if(isValidExt(ext)) {
+                fileType = ext;
+            } else {
+                fileType = fc.getFilter().getName();
+                name ~= '.';
+                name ~= fileType;
+            }
+
+            widget.figure.saveToFile
+                (name, fileType, widget.getWidth, widget.getHeight);
+            d.destroy();
         }
 
 

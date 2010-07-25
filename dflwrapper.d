@@ -26,6 +26,7 @@ version(dfl) {
 import dfl.all;
 
 import plot2kill.util;
+import plot2kill.png;
 import plot2kill.guiagnosticbase;
 
 /**DFL's implementation of a color object.*/
@@ -321,11 +322,12 @@ public:
         drawImpl();
     }
 
-    /**Save this figure to a file.  Currently, the only format supported is
-     * .bmp.  When this situation improves, the extension of the file will
-     * be used to determine what format to use.  The width and height parameters
-     * allow you to specify explicit width and height parameters for the image
-     * file.  If width and height are left at their default values
+    /**Saves this figure to a file.  The file type can be one of the
+     * raster formats .png or .bmp.  Saving to vector formats will likely
+     * never be supported on DFL because DFL's drawing backend is GDI, which is
+     * inherently raster-based.  The width and height parameters allow you to
+     * specify explicit width and height parameters for the image file.  If
+     * width and height are left at their default values
      * of 0, the default width and height of the subclass being saved will
      * be used.
      *
@@ -333,8 +335,20 @@ public:
      *        consistency with backends that support vector formats.  These
      *        are simply rounded to the nearest integer for the DFL backend.
      */
-    void saveToFile(string filename, double width = 0, double height = 0) {
-        enforce(width >= 0 && height >= 0);
+    void saveToFile
+    (string filename, string type, double width = 0, double height = 0) {
+        // User friendliness:  Remove . if it was included, don't be case sens.
+        type = tolower(type);
+        if(!type.empty && type.front == '.') {
+            type.popFront();
+        }
+
+        // Check this stuff upfront before we allocate a bunch of resources.
+        enforce(type == "bmp" || type == "png",
+            "Don't now how to save a " ~ type ~ " file on the DFL backend.");
+
+        enforce(width >= 0 && height >= 0,
+            "Can't save an image w/ negative or NaN width or height.");
 
         if(width == 0 || height == 0) {
             width = this.defaultWindowWidth;
@@ -352,9 +366,28 @@ public:
         scope(exit) handle.close();
 
         auto pix = getPixels(graphics);
-        scope(exit) GC.free(cast(void*) pix.ptr);
+        scope(exit) free(cast(void*) pix.ptr);
 
-        writeBitmap(pix, handle, iWidth, iHeight);
+        if(type == "bmp") {
+            writeBitmap(pix, handle, iWidth, iHeight);
+        } else if(type == "png") {
+            writePngFromBitmapPixels(pix, handle, iWidth, iHeight);
+        } else {
+            assert(0);   // Already validated input at beginning of function.
+        }
+    }
+
+    /**Convenience function that infers the type from the filename extenstion
+     * and defaults to .png if no valid file format extension is found.
+     */
+    void saveToFile(string filename, double width = 0, double height = 0) {
+        auto type = tolower(getExt(filename));
+
+        if(type != "bmp") {
+            // Default to png.
+            type = "png";
+        }
+        saveToFile(filename, type, width, height);
     }
 
     ///
@@ -430,7 +463,11 @@ public:
 class DefaultPlotWindow : Form {
 private:
     FigureControl control;
-    enum string fileFilter = "BMP files (*.bmp)|*.bmp";
+    enum string fileFilter = "PNG files (*.png)|*.png|BMP files (*.bmp)|*.bmp";
+
+    // Why does the save dialog use 1 indexing instead of zero indexing?
+    static immutable string[3] types =
+        ["dummy", "png", "bmp"];
 
     // Brings up a save menu when the window is right clicked on.
     void rightClickSave(Control c, MouseEventArgs ea) {
@@ -450,8 +487,19 @@ private:
             return;
         }
 
+        auto filename = dialog.fileName;
+        auto ext = tolower(getExt(filename));
+        string type;
+        if(ext == "png" || ext == "bmp") {
+            type = ext;
+        } else {
+            type = types[dialog.filterIndex];
+            filename ~= '.';
+            filename ~= type;
+        }
+
         control.figure.saveToFile(
-            dialog.fileName,
+            filename,
             control.width,
             control.height
         );
@@ -491,7 +539,9 @@ private:
 import dfl.internal.winapi;
 import std.c.stdlib : malloc, free;
 
-// Get the bitmap as an array of pixels.
+// Get the bitmap as an array of pixels.  Returns on the C heap b/c it's a
+// private function that allodates huge buffers with trivial lifetimes, so
+// we want to free them immediately.
 Pixel[] getPixels(MemoryGraphics graphics) {
     // Calculate bitmap padding.  Bitmaps require the number of bytes per line
     // to be divisible by 4.
@@ -499,7 +549,9 @@ Pixel[] getPixels(MemoryGraphics graphics) {
     while((paddingBytes + graphics.width * 3) % 4 > 0) {
         paddingBytes++;
     }
-    auto pixels = new byte[graphics.height * (graphics.width * 3 + paddingBytes)];
+
+    immutable len = graphics.height * (graphics.width * 3 + paddingBytes);
+    auto pixels = (cast(byte*) malloc(len))[0..len];
 
 	BITMAPINFO	bitmapInfo;
     with (bitmapInfo.bmiHeader) {

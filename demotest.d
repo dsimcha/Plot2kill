@@ -46,8 +46,12 @@ version(test) {
 import plot2kill.all, plot2kill.util;
 
 version(gtk) {
-    import gtk.Main, cairo.SvgSurface, cairo.Context;
+    import gtk.Main;
+    enum string libName = "GTK";
+} else version(dfl) {
+    enum string libName = "DFL";
 }
+
 import dstats.all, std.stdio;
 void main(string[] args)
 {
@@ -79,11 +83,10 @@ void main(string[] args)
     hist.yLabel = "Count";
 
     version(gtk) {
-        hist.saveToFile("foo.svg");
-    } else {
-        hist.saveToFile("foo.bmp");
+        hist.saveToFile("foo" ~ libName ~ ".svg");
     }
-
+    hist.saveToFile("foo" ~ libName ~ ".png");
+    hist.saveToFile("foo" ~ libName ~ ".bmp");
     hist.showAsMain();
 
     auto errs = [0.1, 0.2, 0.3, 0.4];
@@ -171,22 +174,16 @@ void main(string[] args)
         .xLabel("Normal(-2, 1) + Y[i]")
         .yLabel("Normal(1, 1)");
 
-    version(gtk) {
-        heatScatterFig.saveToFile("bar.png", "png", 640, 480);
-    } else {
-        heatScatterFig.saveToFile("bar.bmp", 640, 480);
-    }
+  heatScatterFig.saveToFile("bar" ~ libName ~ ".png", ".png", 640, 480);
 
-  heatScatterFig.showAsMain();
+   heatScatterFig.showAsMain();
 
+    enum string titleStuff = "Plot2Kill " ~ libName ~
+        " Demo  (Programmatically  saved, no longer a screenshot)";
     version(gtk) {
         enum string subplotY = "Pretty Rotated Text";
-        enum string titleStuff = "Plot2Kill GTK Demo  (Programmatically " ~
-            "saved, no longer a screenshot)";
     } else version(dfl) {
-        enum string subplotY = "Ugly Columnar Text";
-        enum string titleStuff = "Plot2Kill DFL Demo";
-
+        enum string subplotY = "Ugly Columnar Text Unless You Patch DFL";
     }
 
     auto sp = Subplot(3, 3)
@@ -204,13 +201,14 @@ void main(string[] args)
         .xLabel("Boring X-Axis Label");
 
     version(gtk) {
-        sp.saveToFile("sp.png", 1280, 1024);
         sp.saveToFile("sp.pdf", 1280, 1024);
         sp.saveToFile("sp.svg", 1280, 1024);
 
-    } else {
-        sp.saveToFile("sp.bmp", 1280, 1024);
     }
+
+    sp.saveToFile("sp" ~ libName ~ ".bmp", 1280, 1024);
+    sp.saveToFile("sp" ~ libName ~ ".png", 1280, 1024);
+
     sp.showAsMain();
 
 }}

@@ -33,7 +33,7 @@
 module plot2kill.util;
 
 public import std.conv, std.math, std.array, std.range, std.algorithm,
-    std.contracts, std.traits, std.stdio, std.string, core.memory;
+    std.contracts, std.traits, std.stdio, std.string, core.memory, std.path;
 
 version(Windows) {
     // This should be available on all 32-bit versions of Windows.  It was
