@@ -874,6 +874,14 @@ private:
                 lowerLim -= pad;
             }
         }
+
+        if(lowerLim > 0) {
+            lowerLim = 0;
+        }
+
+        if(upperLim < 0) {
+            upperLim = 0;
+        }
     }
 
 

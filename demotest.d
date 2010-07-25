@@ -59,6 +59,7 @@ void main(string[] args)
         Main.init(null);
         Main.init(args);
     }
+    BarPlot([1,2,3], [1,2,3], 0.5).toFigure.showAsMain();
 
     // This one tests zooming in heavily, specifically on the tail of a distrib.
     auto histRand = Histogram(
