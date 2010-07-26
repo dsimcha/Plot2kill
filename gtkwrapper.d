@@ -50,7 +50,8 @@ import gdk.Color, gdk.GC, gtk.Widget, gdk.Drawable, gtk.DrawingArea,
     gdk.Pixbuf, gdk.Pixmap, gtkc.all, gtk.FileChooserDialog, gtk.Dialog,
     gtk.FileFilter, gobject.ObjectG, cairo.Context, cairo.FontFace,
     gtkc.cairotypes, cairo.PdfSurface, cairo.SvgSurface,
-    cairo.PostScriptSurface, cairo.Surface, cairo.ImageSurface;
+    cairo.PostScriptSurface, cairo.Surface, cairo.ImageSurface,
+    gtk.FileSelection, gtk.MessageDialog;
 
 /**GTK's implementation of a color object.*/
 struct Color {
@@ -186,7 +187,8 @@ private:
         auto pixbuf = new Pixbuf(pixmap, 0, 0, w, h);
         scope(exit) doneWith(pixbuf);
 
-        pixbuf.savev(filename, type, null, null);
+        int result = pixbuf.savev(filename, type, null, null);
+        enforce(result, "File not saved successfully.");
     }
 
     void saveImplSurface
@@ -209,6 +211,8 @@ private:
             default:
                 enforce(0, "Invalid file format:  " ~ type);
         }
+
+        enforce(surf, "Couldn't save file because surface couldn't be created.");
 
         scope(exit) doneWith(surf);
         auto context = Context.create(surf);
@@ -538,6 +542,9 @@ public:
         if(!type.empty && type.front == '.') {
             type.popFront();
         }
+        if(type == "jpg") {
+            type = "jpeg";
+        }
 
         if(width == 0 || height == 0) {
             width = this.defaultWindowWidth;
@@ -547,7 +554,7 @@ public:
         if(type == "eps" || type == "pdf" || type == "svg" || type == "png") {
             return saveImplSurface(filename, type, width, height);
         } else {
-            enforce(type == "tiff" || type == "bmp" || type == "jpg",
+            enforce(type == "tiff" || type == "bmp" || type == "jpeg",
                 "Invalid format:  " ~ type);
             return saveImplPixmap(filename, type, width, height);
         }
@@ -653,8 +660,9 @@ if(is(Base == gtk.Window.Window) || is(Base == gtk.MainWindow.MainWindow)) {
     private:
         FigureWidget widget;
 
-        immutable string[7] saveTypes =
-            ["*.png", "*.bmp", "*.tiff", "*.jpeg", "*.eps", "*.pdf", "*.svg"];
+        immutable string[8] saveTypes =
+            ["*.png", "*.bmp", "*.tiff", "*.jpg", "*.jpeg", "*.eps",
+             "*.pdf", "*.svg"];
 
         // Based on using print statements to figure it out.  If anyone can
         // find the right documentation and wants to convert this to a proper
@@ -671,54 +679,137 @@ if(is(Base == gtk.Window.Window) || is(Base == gtk.MainWindow.MainWindow)) {
             return false;
         }
 
-
-        void saveDialogResponse(int response, Dialog d) {
-            auto fc = cast(FileChooserDialog) d;
-            assert(fc);
-
-            if(response != GtkResponseType.GTK_RESPONSE_OK) {
-                d.destroy();
-                return;
-            }
-
-            string name = fc.getFilename();
-            auto ext = tolower(getExt(name));
-
-            string fileType;
-            if(isValidExt(ext)) {
-                fileType = ext;
-            } else {
-                fileType = fc.getFilter().getName();
-                name ~= '.';
-                name ~= fileType;
-            }
-
-            widget.figure.saveToFile
-                (name, fileType, widget.getWidth, widget.getHeight);
+        void closeError(int response, Dialog d) {
+            enforce(response == GtkResponseType.GTK_RESPONSE_CLOSE);
             d.destroy();
         }
 
 
-        bool clickEvent(GdkEventButton* event, Widget widget) {
-            if(event.button != rightClick) {
-                return false;
+        void errDialog(string eString) {
+           auto msgbox = new MessageDialog(this,
+              GtkDialogFlags.DESTROY_WITH_PARENT,
+              GtkMessageType.ERROR,
+              GtkButtonsType.CLOSE,
+              "File could not be successfully written.  " ~ eString);
+            msgbox.addOnResponse(&closeError);
+            msgbox.run();
+        }
+
+        version(Windows) {
+            // Use crappy deprecated file dialog to avoid DLL hell issues that
+            // occur in certain configurations (for example, mine).
+            // Specifically, if you have Win64 + Symantec Endpoint Protection +
+            // a mounted network drive and you launch from a Cygwin terminal,
+            // bringing up a save dialog will immediately cause an access
+            // violation.  This is apparently caused by SnacNp64.dll, a 64-bit
+            // DLL related to Symantec's network protection stuff, being loaded
+            // into 32-bit address space.
+            //
+            // This code is kinda quick and dirty in hope that it will be
+            // removed soon.  For example, it doesn't do overwrite
+            // confirmation, or filters.  If the extension isn't valid, it
+            // just defaults to a PNG.
+
+            void saveDialogResponse(int response, Dialog d) {
+                auto fc = cast(FileSelection) d;
+                assert(fc);
+
+                if(response != GtkResponseType.GTK_RESPONSE_OK) {
+                    d.destroy();
+                    return;
+                }
+
+                auto names = fc.getSelections();
+                enforce(names.length == 1);
+                auto name = names[0];
+
+                auto ext = tolower(getExt(name));
+
+                string fileType;
+                if(isValidExt(ext)) {
+                    fileType = ext;
+                } else {
+                    fileType = "png";  // Default since we don't have filters.
+                }
+
+                try {
+                    widget.figure.saveToFile
+                        (name, fileType, widget.getWidth, widget.getHeight);
+                } catch(Exception e) {
+                    errDialog(e.toString());
+                }
+
+                d.destroy();
+            }
+
+            bool clickEvent(GdkEventButton* event, Widget widget) {
+                if(event.button != rightClick) {
+                    return false;
+                }
+
+
+                auto fc = new FileSelection("Save plot...");
+                fc.setSelectMultiple(0);
+                fc.addOnResponse(&saveDialogResponse);
+
+                fc.run();
+                return true;
+            }
+
+        } else {
+            void saveDialogResponse(int response, Dialog d) {
+                auto fc = cast(FileChooserDialog) d;
+                assert(fc);
+
+                if(response != GtkResponseType.GTK_RESPONSE_OK) {
+                    d.destroy();
+                    return;
+                }
+
+                string name = fc.getFilename();
+                auto ext = tolower(getExt(name));
+
+                string fileType;
+                if(isValidExt(ext)) {
+                    fileType = ext;
+                } else {
+                    fileType = fc.getFilter().getName();
+                    name ~= '.';
+                    name ~= fileType;
+                }
+
+                try {
+                    widget.figure.saveToFile
+                        (name, fileType, widget.getWidth, widget.getHeight);
+                } catch(Exception e) {
+                    errDialog(e.toString());
+                }
+
+                d.destroy();
             }
 
 
-            auto fc = new FileChooserDialog("Save plot...", this,
-               GtkFileChooserAction.SAVE);
-            fc.setDoOverwriteConfirmation(1);  // Why isn't this the default?
-            fc.addOnResponse(&saveDialogResponse);
+            bool clickEvent(GdkEventButton* event, Widget widget) {
+                if(event.button != rightClick) {
+                    return false;
+                }
 
-            foreach(ext; saveTypes) {
-                auto filter = new FileFilter();
-                filter.setName(ext[2..$]);
-                filter.addPattern(ext);
-                fc.addFilter(filter);
+
+                auto fc = new FileChooserDialog("Save plot...", this,
+                   GtkFileChooserAction.SAVE);
+                fc.setDoOverwriteConfirmation(1);  // Why isn't this the default?
+                fc.addOnResponse(&saveDialogResponse);
+
+                foreach(ext; saveTypes) {
+                    auto filter = new FileFilter();
+                    filter.setName(ext[2..$]);
+                    filter.addPattern(ext);
+                    fc.addFilter(filter);
+                }
+
+                fc.run();
+                return true;
             }
-
-            fc.run();
-            return true;
         }
 
     public:

@@ -469,6 +469,11 @@ private:
     static immutable string[3] types =
         ["dummy", "png", "bmp"];
 
+    void errDialog(string eString) {
+        msgBox("File could not be saved successfully.  " ~ eString);
+
+    }
+
     // Brings up a save menu when the window is right clicked on.
     void rightClickSave(Control c, MouseEventArgs ea) {
         if(ea.button != MouseButtons.RIGHT) {
@@ -498,11 +503,15 @@ private:
             filename ~= type;
         }
 
-        control.figure.saveToFile(
-            filename,
-            control.width,
-            control.height
-        );
+        try {
+            control.figure.saveToFile(
+                filename,
+                control.width,
+                control.height
+            );
+        } catch(Exception e) {
+            errDialog(e.toString());
+        }
     }
 
 public:
