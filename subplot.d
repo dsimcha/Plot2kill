@@ -38,7 +38,7 @@ import plot2kill.util;
  * class, which derives from this class and has a few GUI-specific things added.
  *
  * Subplot objects allows for one or more subplots to be created in a single
- * window or a single file.  Each subplot is represented by a Figure.
+ * window or a single file.  Each subplot is represented by a FigureBase.
  * In the default plot window, double-clicking on any subplot zooms
  * in on it.  Double-clicking again zooms out.
  *
@@ -62,8 +62,8 @@ private:
     double leftMargin = 0;
     enum int rightMargin = 10;  // No label here so it can be an enum.
 
-    Figure[][] figs;
-    Figure zoomedFigure;
+    FigureBase[][] figs;
+    FigureBase zoomedFigure;
 
     invariant() {
         assert(figs.length == nRows);
@@ -192,7 +192,7 @@ protected:
         this.nRows = nRows;
         this.nColumns = nColumns;
 
-        figs = new Figure[][](nRows, nColumns);
+        figs = new FigureBase[][](nRows, nColumns);
     }
 
     override void drawImpl() {
@@ -227,7 +227,7 @@ public:
     /**Add a figure to the subplot in the given row and column.
      * This function returns this to allow for a fluent interface.
      */
-    This addFigure(this This)(Figure fig, uint row, uint col) {
+    This addFigure(this This)(FigureBase fig, uint row, uint col) {
         enforce(row < nRows && col < nColumns, std.conv.text(
             "Can't add a plot to cell (",row, ", ", col, ") of a ", nRows,
             "x", nColumns, " Subplot."));
@@ -290,7 +290,7 @@ package class SubplotControl : FigureControl {
         return ret;
     }
 
-    Figure getFigureAt(double x, double y) {
+    FigureBase getFigureAt(double x, double y) {
         auto sp = subplot();
 
         with(sp) {
@@ -389,7 +389,7 @@ package class SubplotWidget : FigureWidget {
 //        return true;
 //    }
 
-    Figure getFigureAt(double x, double y) {
+    FigureBase getFigureAt(double x, double y) {
         auto sp = subplot();
 
         with(sp) {
