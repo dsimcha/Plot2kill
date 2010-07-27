@@ -180,7 +180,40 @@ private:
             (context, PlotRect(xOffset, yOffset, width, height));
     }
 
+    // This code is really, REALLY inefficient, but I don't care because it's
+    // safe to say N will always be tiny, and it's simple and readable.
+    void doAdd(FigureBase fig) {
+        // Search for empty slots;
+        foreach(row; figs) foreach(ref cell; row) {
+            if(cell is null) {
+                cell = fig;
+                return;
+            }
+        }
+
+        // Add a new row.
+        if(nColumns > nRows) {
+            nRows++;
+            figs ~= new FigureBase[nColumns];
+            figs[$ - 1][0] = fig;
+            return;
+        }
+
+        // Add a new column.
+        nColumns++;
+        auto oldFigs = figs;
+        figs = new FigureBase[][](nRows, nColumns);
+
+        foreach(row; oldFigs) foreach(cell; row) {
+            doAdd(cell);
+        }
+
+        doAdd(fig);
+    }
+
 protected:
+
+    this() {}
 
     this(uint nRows, uint nColumns) {
         enforce(nRows >= 1 && nColumns >= 1,
@@ -207,6 +240,15 @@ protected:
 
 public:
 
+    /**Create an instance with nRows rows and nColumns columns.*/
+    static Subplot opCall(uint nRows, uint nColumns) {
+        return new Subplot(nRows, nColumns);
+    }
+
+    /**Create an empty Subplot instance.*/
+    static Subplot opCall() {
+        return new Subplot();
+    }
 
     override int defaultWindowWidth() {
         return 1024;
@@ -235,6 +277,38 @@ public:
         figs[row][col] = fig;
         return cast(This) this;
     }
+
+    /**Add a figure to the subplot using the default layout, which is as
+     * follows:
+     *
+     * 1.  Slots will be searched left-to-right, top-to-bottom, rows first.
+     *     If an empty one is found, the figure will be added there.
+     *
+     * 2.  If no empty slots are found and nColumns <= nRows, then another
+     *     column will be added. The N existing figures will be moved such that
+     *     they are the first N figures in left-to-right, top-to-bottom,
+     *     rows first order and their ordering according to this predicate
+     *     does not change.  The figure to be added will be the last figure
+     *     according to this predicate.
+     *
+     * 3.  If no empty slots are found and nColumns > nRows, a new row will
+     *     be created and the figure will be stored as the first element in
+     *     that row.
+     *
+     * Notes: If you add figures with the overload that allows explicit row and
+     *        column specification, and then call this overload, the coordinates
+     *        of previously added figures may be changed.
+     *
+     *        If you pass multiple figures, they are simply added iteratively
+     *        according to these rules.
+     */
+     This addFigure(this This)(FigureBase[] toAdd...) {
+         foreach(fig; toAdd) {
+             doAdd(fig);
+         }
+
+         return cast(This) this;
+     }
 };
 
 version(dfl) {
@@ -249,9 +323,8 @@ class Subplot : SubplotBase {
         super(nRows, nColumns);
     }
 
-    /**Create an instance with nRows rows and nColumns columns.*/
-    static Subplot opCall(uint nRows, uint nColumns) {
-        return new Subplot(nRows, nColumns);
+    private this() {
+        super();
     }
 
     ///
@@ -348,9 +421,8 @@ class Subplot : SubplotBase {
         super(nRows, nColumns);
     }
 
-    /**Create an instance with nRows rows and nColumns columns.*/
-    static Subplot opCall(uint nRows, uint nColumns) {
-        return new Subplot(nRows, nColumns);
+    private this() {
+        super();
     }
 
     ///

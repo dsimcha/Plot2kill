@@ -186,16 +186,9 @@ void main(string[] args)
         enum string subplotY = "Ugly Columnar Text Unless You Patch DFL";
     }
 
-    auto sp = Subplot(3, 3)
-        .addFigure(hist, 0, 0)
-        .addFigure(binom, 0, 1)
-        .addFigure(linesWithErrorsFig, 1, 0)
-        .addFigure(scatter, 1, 1)
-        .addFigure(barFig, 0, 2)
-        .addFigure(qq, 1, 2)
-        .addFigure(frqHist, 2, 0)
-        .addFigure(uniqueHistFig, 2, 1)
-        .addFigure(heatScatterFig, 2, 2)
+    auto sp = Subplot().addFigure
+        (hist, binom, barFig, linesWithErrorsFig, scatter,
+         qq, frqHist, uniqueHistFig, heatScatterFig)
         .title(titleStuff)
         .yLabel(subplotY)
         .xLabel("Boring X-Axis Label");
