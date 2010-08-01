@@ -425,12 +425,6 @@ package:
         immutable pwid = parent.width - horizontalBorderSize;
         immutable pheight = parent.height - verticalBorderSize;
 
-        // Skip redraw if difference is negligible.  This speeds things up
-        // a lot.
-        if(abs(pwid - width) < 5 && abs(height - pheight) < 5) {
-            return;
-        }
-
         this.size = Size(parent.width - horizontalBorderSize,
                          parent.height - verticalBorderSize);
 
