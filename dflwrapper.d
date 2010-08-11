@@ -23,7 +23,7 @@ module plot2kill.dflwrapper;
 
 version(dfl) {
 
-import dfl.all;
+import dfl.all, dfl.internal.utf, dfl.internal.winapi;
 
 import plot2kill.util;
 import plot2kill.png;
@@ -116,6 +116,21 @@ private:
         return Rect(intX, intY, intWidth, intHeight);
     }
 
+    static Font getRotated(Font font) {
+        LogFont lf;
+
+        lf.faceName = font.name;
+
+        lf.lf.lfEscapement  = 900;
+        lf.lf.lfOrientation = 900;
+
+        lf.lf.lfOutPrecision = OUT_DEFAULT_PRECIS;
+        lf.lf.lfClipPrecision = CLIP_DEFAULT_PRECIS;
+        lf.lf.lfPitchAndFamily = DEFAULT_PITCH | FF_DONTCARE;
+
+        return new Font(lf, font.size, font.style, font.unit);
+    }
+
 protected:
     // Fonts tend to be different actual sizes on different GUI libs for a
     // given nominal size. This adjusts for that factor when setting default
@@ -196,10 +211,6 @@ public:
             text, font, pointColor, offsetRect, textAlignments[alignment]);
     }
 
-    // BUGS:  Draws columnar text, not rotated text, unless you're running DFL
-    // with patches that I haven't released yet.  Also, in the columnar text
-    // case, since it's such a kludge anyhow, assumes you really want the text
-    // centered w.r.t. the whole figure.
     final void drawRotatedText(
         string text,
         Font font,
@@ -207,37 +218,26 @@ public:
         PlotRect rect,
         TextAlignment alignment
     ) {
-        static if(is(dfl.drawing.RFont)) {  // Patched DFL
-            auto rfont = new RFont(font.name, font.size);
-            scope(exit) doneWith(rfont);
+        auto rfont = getRotated(font);
+        scope(exit) doneWith(rfont);
 
-            auto meas = measureText(text, font);
-            auto slack = max(0, rect.height - meas.width);
-            double toAdd;
-            if(alignment == TextAlignment.Center) {
-                toAdd = slack / 2;
-            } else if(alignment == TextAlignment.Right) {
-                toAdd = slack;
-            }
-
-            // The rotated text patch is buggy, and will try to wrap words
-            // when it shouldn't.  Make width huge to effectively disable
-            // wrapping.  Also, DFL's Y coord is for the bottom, not the top.
-            // Fix this.
-            auto rect2 = PlotRect(
-                rect.x, rect.y + meas.width + toAdd,
-                10 * this.width, rect.width);
-            drawText(text, rfont, getColor(0, 0, 0), rect2);
-        } else {
-            // Render butt-ugly columnar text and assume it should be
-            // centered vertically w.r.t. the figure as a whole.
-            text = addNewLines(text);
-            auto meas = measureText(text, font);
-            auto slack = max(0, this.height - meas.height);
-
-            auto rect2 = PlotRect(rect.x, slack / 2, meas.width, meas.height);
-            drawText(text, font, pointColor, rect2);
+        auto meas = measureText(text, font);
+        auto slack = max(0, rect.height - meas.width);
+        double toAdd;
+        if(alignment == TextAlignment.Center) {
+            toAdd = slack / 2;
+        } else if(alignment == TextAlignment.Right) {
+            toAdd = slack;
         }
+
+        // The rotated text patch is buggy, and will try to wrap words
+        // when it shouldn't.  Make width huge to effectively disable
+        // wrapping.  Also, DFL's Y coord is for the bottom, not the top.
+        // Fix this.
+        auto rect2 = PlotRect(
+            rect.x, rect.y + meas.width + toAdd,
+            10 * this.width, rect.width);
+        drawText(text, rfont, getColor(0, 0, 0), rect2);
     }
 
     final void drawText(

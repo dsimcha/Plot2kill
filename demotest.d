@@ -180,11 +180,8 @@ void main(string[] args)
 
     enum string titleStuff = "Plot2Kill " ~ libName ~
         " Demo  (Programmatically  saved, no longer a screenshot)";
-    version(gtk) {
-        enum string subplotY = "Pretty Rotated Text";
-    } else version(dfl) {
-        enum string subplotY = "Ugly Columnar Text Unless You Patch DFL";
-    }
+    enum string subplotY = "Pretty Rotated Text";
+
 
     auto sp = Subplot().addFigure
         (hist, binom, barFig, linesWithErrorsFig, scatter,
