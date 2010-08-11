@@ -1,4 +1,6 @@
-/**
+/**This file contains all of the plot types and Figure, which is a container
+ * that draws one or more Plots onto a drawable surface.
+ *
  * Copyright (C) 2010 David Simcha
  *
  * License:

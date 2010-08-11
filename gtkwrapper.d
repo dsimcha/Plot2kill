@@ -1,14 +1,5 @@
 /**This file contains the GTK-specific parts of Plot2Kill and is publicly
- * imported by plot2kill.figure if compiled with -version=gtk.  This is even
- * more a work in progress than the DFL version.
- *
- * BUGS:
- *
- * 1.  Text word wrap doesn't work yet because the gtkD text drawing API is
- *     missing some functionality.
- *
- * 2.  HeatMap is beyond slow.
- *
+ * imported by plot2kill.figure if compiled with -version=gtk.
  *
  * Copyright (C) 2010 David Simcha
  *

@@ -1,6 +1,8 @@
-/**This PNG library is based on Adam Ruppe's PNG code, which he released into
+/* This PNG library is based on Adam Ruppe's PNG code, which he released into
  * the public domain.  Basically, I adapted it by stripping out everything
  * that I didn't need.  It's currently used for saving PNGs in the DFL port.
+ *
+ * This code is currently not considered part of the public API of plot2kill.
  *
  * License:
  *
@@ -31,6 +33,8 @@
 module plot2kill.png;
 
 version(dfl) {
+
+package:
 
 import plot2kill.util;
 import core.stdc.stdlib : malloc, free;
@@ -75,15 +79,15 @@ void writePngFromBitmapPixels(Pixel)
 // domain, adapted by David Simcha 2010.
 import std.zlib;
 
-/// convenience for 32 bit per pixel RGBA images
+// convenience for 32 bit per pixel RGBA images
 struct TrueColorImage {
 	int width;
 	int height;
-	ubyte[] data; /// one byte per color entry, left to right, top to bottom, RGBA. So 32 bits per pixel
+	ubyte[] data; // one byte per color entry, left to right, top to bottom, RGBA. So 32 bits per pixel
 	// I believe this is, in memory, identical to Color[] data;
 }
 
-/// Represents basic data about a png. If you just use the convenience structs above, you never actually need this.
+// Represents basic data about a png. If you just use the convenience structs above, you never actually need this.
 struct PNGHeader {
 	uint width; // in pixels
 	uint height;
@@ -94,7 +98,7 @@ struct PNGHeader {
 	ubyte interlaceMethod = 0; // bool. this code doesn't support interlacing.
 }
 
-/// Ditto, but for truecolor images
+// Ditto, but for truecolor images
 PNG* pngFromImage(TrueColorImage i) {
 	PNGHeader h;
 	h.width = i.width;
@@ -167,8 +171,8 @@ struct PNG {
 	}
 }
 
-/// Takes a png in memory, and translates it into an array suitable for immediate writing to a file.
-/// std.file.write("my-image.png", writePng(png));
+// Takes a png in memory, and translates it into an array suitable for immediate writing to a file.
+// std.file.write("my-image.png", writePng(png));
 ubyte[] writePng(PNG* p) {
 	ubyte[] a;
 	if(p.length)
@@ -202,8 +206,8 @@ ubyte[] writePng(PNG* p) {
 	return a;
 }
 
-/// If you just want to handle the data yourself, use this to get a struct ready for addition of other chunks. This function creates the required header chunk based on a struct you pass in.
-/**
+// If you just want to handle the data yourself, use this to get a struct ready for addition of other chunks. This function creates the required header chunk based on a struct you pass in.
+/*
 
 PNGHeader h;
 

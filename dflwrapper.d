@@ -4,19 +4,6 @@
  * Note that since DFL was the first library that Plot2Kill was ported to,
  * it is considered the native lib and most stuff in this module maps cleanly
  * and directly to DFL.
- *
- * BUGS:
- *
- * 1. Rotated text for Y-Axis labels isn't available in DFL.  Therefore,
- *    Y-Axis labels are rendered in ugly columnar text.
- *
- * 2. There is currently no "proper" way to save a plot.  This is because
- *    DFL's Bitmap object doesn't provide a way to obtain the underlying
- *    pixels yet, and core.stdc.windows doesn't seem to provide the necessary
- *    stuff to do it manually via the Windows API.  In the meantime, a
- *    workaround (at least for manual, as opposed to programmatic, saving)
- *    is to take a screenshot using the print screen key and save
- *    this.
  */
 module plot2kill.dflwrapper;
 

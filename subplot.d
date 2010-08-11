@@ -1,5 +1,5 @@
-/**This module contains subplot windows.  The details of these depend on the
- * GUI lib in question.
+/**This module contains the Subplot object.  This allows placing multiple
+ * plots on a single form in a simple grid arrangement..
  *
  * Copyright (C) 2010 David Simcha
  *
@@ -34,7 +34,7 @@ module plot2kill.subplot;
 import plot2kill.figure;
 import plot2kill.util;
 
-/**This is the GUI-agnostic base class for a Subplot.  See Subplot the Subplot
+/**This is the GUI-agnostic base class for a Subplot.  See the Subplot
  * class, which derives from this class and has a few GUI-specific things added.
  *
  * Subplot objects allows for one or more subplots to be created in a single
@@ -267,7 +267,6 @@ public:
     }
 
     /**Add a figure to the subplot in the given row and column.
-     * This function returns this to allow for a fluent interface.
      */
     This addFigure(this This)(FigureBase fig, uint row, uint col) {
         enforce(row < nRows && col < nColumns, std.conv.text(
@@ -340,7 +339,7 @@ class Subplot : SubplotBase {
 
 /* This class is an implementation detail.  All public code should use it as
  * its base class.  It's very tightly coupled to the Subplot class because
- * it contains bejavior that doesn't make any sense to expose in a more
+ * it contains behavior that doesn't make any sense to expose in a more
  * transparent way.
  */
 package class SubplotControl : FigureControl {

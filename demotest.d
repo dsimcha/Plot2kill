@@ -1,4 +1,4 @@
-/**These are demos/tests for Plot2Kill.  Most of them require my dstats lib.
+/* These are demos/tests for Plot2Kill.  Most of them require my dstats lib.
  * dstats is not a dependency of Plot2Kill, except for these demos.  I chose to
  * use dstats-related demos becuase statistics-related plots is where I got
  * many of my use cases from, and Plot2Kill probably would work nicely with

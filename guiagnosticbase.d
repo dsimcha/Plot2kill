@@ -1,4 +1,4 @@
-/**void file contains the GUI-agnostic base functionality of Figure and Subplot.
+/**This file contains the GUI-agnostic base functionality of Figure and Subplot.
  * FigureBase inherits from it in all GUI ports.
  *
  * Copyright (C) 2010 David Simcha
@@ -37,7 +37,7 @@ version(dfl) {
     import plot2kill.gtkwrapper;
 }
 
-/**void is the base class for all GUI-specific FigureBase objects, and
+/**This is the base class for all GUI-specific FigureBase objects, and
  * contains functionality common to Figures and Subplots across all GUIs.
  */
 abstract class GuiAgnosticBase {
