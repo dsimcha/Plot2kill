@@ -2363,7 +2363,7 @@ class ContinuousFunction : LineGraph {
      * more accuracy but more computational intensity.
      */
     static ContinuousFunction opCall(C)(
-        C callable,
+        scope C callable,
         double lowerLim,
         double upperLim,
         uint nEvals = 1000
@@ -2402,7 +2402,7 @@ class DiscreteFunction : BarPlot {
      * upperLim is the upper limit of the plot.
      */
     static DiscreteFunction opCall(C)(
-        C callable,
+        scope C callable,
         int lowerLim,
         int upperLim,
     ) if(is(typeof(C.init(2)) : double)) {
