@@ -32,7 +32,8 @@
  * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS IN THE SOFTWARE.
  */
-import std.conv, std.contracts, std.algorithm, std.typecons,
+import std.conv, std.exception
+, std.algorithm, std.typecons,
     std.traits, std.math, std.array, std.range, std.functional, core.thread,
     std.stdio;
 

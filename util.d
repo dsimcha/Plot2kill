@@ -33,7 +33,7 @@
 module plot2kill.util;
 
 public import std.conv, std.math, std.array, std.range, std.algorithm,
-    std.contracts, std.traits, std.stdio, std.string, core.memory, std.path;
+    std.exception, std.traits, std.stdio, std.string, core.memory, std.path;
 
 version(Windows) {
     // This should be available on all 32-bit versions of Windows.  It was
@@ -229,7 +229,7 @@ version(dfl) {
     }
 }
 
-// Write an arraay of pixels to a .bmp file.  Used to implement saving on DFL.
+// Write an array of pixels to a .bmp file.  Used to implement saving on DFL.
 //
 // BUGS:  Since for now this is only for saving on DFL, which is tied to
 //        Windows, this function assumes it will be running on a little
