@@ -1203,7 +1203,7 @@ class Histogram : Plot {
 
     /// The number of bins this histogram contains.
     final uint nBin() const pure nothrow  {
-        return binCounts.length;
+        return cast(uint) binCounts.length;
     }
 
     /**Factory method to instantiate this class.  nums must be a forward range
@@ -1623,9 +1623,9 @@ class HeatMap : Plot {
     protected void heatMapDefaultBounds() {
         enforceRectangular();
 
-        _nRows = values.length;
+        _nRows = cast(uint) values.length;
         if(values.length > 0) {
-            _nCols = values[0].length;
+            _nCols = cast(uint) values[0].length;
         }
 
         leftLim = 0.5;
@@ -2098,7 +2098,7 @@ class LineGraph : Plot {
         double lastX = toPixelsX(x[0]);
         double lastY = toPixelsY(y[0]);
 
-        void doErrors(uint index) {
+        void doErrors(size_t index) {
             if(lowerErrors.length) {
                 drawErrorBar(
                     errorPen, x[index], y[index],
