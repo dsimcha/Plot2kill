@@ -426,6 +426,7 @@ class Subplot : SubplotBase {
 
     ///
     override FigureWidget toWidget() {
+        defaultInit();
         return new SubplotWidget(this);
     }
 }
