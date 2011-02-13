@@ -1200,6 +1200,7 @@ class Histogram : Plot {
         return cast(This) this;
     }
 
+
     /// The number of bins this histogram contains.
     final uint nBin() const pure nothrow  {
         return binCounts.length;
@@ -1598,8 +1599,8 @@ class HeatMap : Plot {
 
     private this() {
         // Set default colors.
-        _coldColor = getColor(0, 0, 255);
-        _hotColor = getColor(255, 0, 0);
+        _coldColor = getColor(255, 255, 255);
+        _hotColor = getColor(0, 0, 0);
     }
 
     private Color getCellColor(double val) {

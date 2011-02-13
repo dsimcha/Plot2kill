@@ -47,7 +47,6 @@ version(test) {
 import plot2kill.all, plot2kill.util;
 
 version(gtk) {
-    import gtk.Main;
     enum string libName = "GTK";
 } else version(dfl) {
     enum string libName = "DFL";
@@ -56,11 +55,6 @@ version(gtk) {
 import dstats.all, std.stdio;
 void main(string[] args)
 {
-    version(gtk) {
-        Main.init(null);
-        Main.init(args);
-    }
-
     // This one tests zooming in heavily, specifically on the tail of a distrib.
     auto histRand = Histogram(
         randArray!rNorm(5_000, 0, 1), 100, -5, 5, OutOfBounds.Ignore);
@@ -165,9 +159,6 @@ void main(string[] args)
         HeatScatter(a1, a2, 100, 100, -6, 6, -5, 5, OutOfBounds.Ignore)
     );
 
-    heatScatter
-        .coldColor(getColor(255, 255, 255))
-        .hotColor(getColor(0, 0, 0));
     auto heatScatterFig = heatScatter.toFigure
         .xLim(-4, 2)
         .yLim(-2, 4)
