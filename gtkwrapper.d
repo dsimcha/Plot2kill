@@ -54,7 +54,7 @@ import gdk.Color, gdk.GC, gtk.Widget, gdk.Drawable, gtk.DrawingArea,
     gtk.FileSelection, gtk.MessageDialog;
 
 // Default initialize GTK.
-private void defaultInit() {
+package void defaultInit() {
     string[] args;
     Main.initCheck(args);
 }
