@@ -55,6 +55,21 @@ version(gtk) {
 import dstats.all, std.stdio;
 void main(string[] args)
 {
+
+    auto boxFig = BoxPlot(0.03).addData(
+        randArray!rNorm(100, 0, 1),
+        randArray!rNorm(100, 0, 0.5),
+        randArray!rNorm(100, 0.5, 2),
+        randArray!rExponential(100, 0.5),
+        randArray!uniform(100, -1.0, 1.0)
+    ).toFigure.rotatedXTick(true)
+        .xTickLabels(iota(5), [
+            "Normal(0, 1)", "Normal(0, 0.5)", "Normal(0.5, 2)",
+            "Exponential(0.5)", "Uniform(-1, 1)"]
+        );
+
+    boxFig.showAsMain();
+
     // This one tests zooming in heavily, specifically on the tail of a distrib.
     auto histRand = Histogram(
         randArray!rNorm(5_000, 0, 1), 100, -5, 5, OutOfBounds.Ignore);
@@ -76,10 +91,6 @@ void main(string[] args)
     hist.title = "Normal Distrib.";
     hist.xLabel = "Random Variable";
     hist.yLabel = "Count";
-
-    version(gtk) {
-        hist.saveToFile("foo" ~ libName ~ ".svg");
-    }
     hist.saveToFile("foo" ~ libName ~ ".png");
     hist.saveToFile("foo" ~ libName ~ ".bmp");
     hist.showAsMain();
@@ -90,7 +101,7 @@ void main(string[] args)
     linesWithErrors.lineColor = getColor(255, 0, 0);
     auto linesWithErrorsFig = linesWithErrors.toFigure;
     linesWithErrorsFig.title = "Error Bars";
- //   linesWithErrorsFig.showAsMain();
+    linesWithErrorsFig.showAsMain();
 
     auto binomExact =
         DiscreteFunction(parametrize!binomialPMF(8, 0.5), 0, 8);
@@ -103,7 +114,7 @@ void main(string[] args)
     binom.yLabel = "Probability";
     binom.xTickLabels(array(iota(0, 9, 1)));
     binom.xLim(0, 8);
-  //  binom.showAsMain();
+    binom.showAsMain();
 
     auto scatter = ScatterPlot(
         randArray!rNorm(100, 0, 1),
@@ -113,14 +124,14 @@ void main(string[] args)
     scatter.yLim(-2, 2);
     scatter.verticalGrid = true;
     scatter.horizontalGrid = true;
- //   scatter.showAsMain();
+   scatter.showAsMain();
 
     auto bars = BarPlot([1,2,3], [8,7,3], 0.5, [1,2,4], [1,2,4]);
     auto barFig = bars.toFigure;
     barFig.xTickLabels(bars.centers, ["Plan A", "Plan B", "Plan C"]);
     barFig.title = "Useless Plans";
     barFig.yLabel = "Screwedness";
- //   barFig.showAsMain();
+    barFig.showAsMain();
 
     auto qq = QQPlot(
         randArray!rStudentT(100, 7),
@@ -129,7 +140,7 @@ void main(string[] args)
     qq.title = "Normal Vs. Student's T w/ 7 D.F.";
     qq.xLabel = "Normal";
     qq.yLabel = "Student's T";
-  //  qq.showAsMain();
+    qq.showAsMain();
 
     auto frqHist = FrequencyHistogram(
         randArray!rNorm(100_000, 0, 1), 100).toFigure;
@@ -142,7 +153,7 @@ void main(string[] args)
     uniqueHist.barColor = getColor(0, 200, 0);
     auto uniqueHistFig = uniqueHist.toLabeledFigure;
     uniqueHistFig.title = "Unique Histogram";
- //   uniqueHistFig.showAsMain();
+    uniqueHistFig.showAsMain();
 
     auto heatScatter = HeatScatter(100, 100, -6, 6, -5, 5);
     heatScatter.boundsBehavior = OutOfBounds.Ignore;
@@ -166,7 +177,7 @@ void main(string[] args)
         .xLabel("Normal(-2, 1) + Y[i]")
         .yLabel("Normal(1, 1)");
 
-  heatScatterFig.saveToFile("bar" ~ libName ~ ".png", ".png", 640, 480);
+   //heatScatterFig.saveToFile("bar" ~ libName ~ ".png", ".png", 640, 480);
 
    heatScatterFig.showAsMain();
 
@@ -177,7 +188,7 @@ void main(string[] args)
 
     auto sp = Subplot().addFigure
         (hist, binom, barFig, linesWithErrorsFig, scatter,
-         qq, frqHist, uniqueHistFig, heatScatterFig)
+         qq, frqHist, uniqueHistFig, heatScatterFig, boxFig)
         .title(titleStuff)
         .yLabel(subplotY)
         .xLabel("Boring X-Axis Label");

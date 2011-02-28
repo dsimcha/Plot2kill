@@ -31,7 +31,7 @@
  */
 module plot2kill.figure;
 
-import plot2kill.util;
+import plot2kill.util, std.typetuple;
 
 version(dfl) {
     public import plot2kill.dflwrapper;
@@ -109,7 +109,9 @@ private:
     void fixMargins() {
         fixTickSizes();
         immutable xLabelSize = measureText(xLabel(), xLabelFont());
-        bottomMargin = tickLabelHeight + tickPixels + xLabelSize.height + 20;
+        immutable bottomTickHeight = (rotatedXTick()) ?
+            xTickLabelWidth : tickLabelHeight;
+        bottomMargin = bottomTickHeight + tickPixels + xLabelSize.height + 20;
 
         topMargin = measureText(title(), titleFont(), plotWidth).height + 20;
 
@@ -224,13 +226,26 @@ private:
         auto format = TextAlignment.Center;
 
         immutable textSize = measureText(text, _axesFont, format);
-        auto rect = PlotRect(wherePixels - textSize.width / 2,
-            this.height - bottomMargin  + tickPixels + lineLabelSpace,
-            textSize.width,
-            textSize.height
-        );
+        immutable tickTextStart =
+            this.height - bottomMargin  + tickPixels + lineLabelSpace;
 
-        drawText(text, _axesFont, getColor(0, 0, 0), rect, format);
+        if(rotatedXTick()) {
+            auto rect = PlotRect(wherePixels - tickLabelHeight / 2,
+                tickTextStart + tickPixels / 2,
+                textSize.height,
+                textSize.width
+            );
+
+            drawRotatedText(text, _axesFont, getColor(0, 0, 0), rect, format);
+        } else {
+            auto rect = PlotRect(wherePixels - textSize.width / 2,
+                tickTextStart,
+                textSize.width,
+                textSize.height
+            );
+
+            drawText(text, _axesFont, getColor(0, 0, 0), rect, format);
+        }
     }
 
     void drawYTick(double where, string text) {
@@ -2420,7 +2435,8 @@ class DiscreteFunction : BarPlot {
         double[] x = new double[upperLim - lowerLim + 1];
         double[] y = new double[upperLim - lowerLim + 1];
 
-        foreach(int index; 0..x.length) {
+        foreach(ulIndex; 0..x.length) {
+            immutable index = cast(int) ulIndex;
             x[index] = lowerLim + index;
             y[index] = callable(input);
             input++;
@@ -2720,3 +2736,245 @@ class QQPlot : ScatterPlot {
         return ret;
     }
 }
+
+/**
+Draw a basic box-and-whisker plot.  The plots are drawn centered at Y
+coordinates [0, 1, ..., N).
+*/
+class BoxPlot : Plot {
+private:
+    double[] medians;
+    double[] boxBottoms;
+    double[] boxTops;
+    double[] whiskerBottoms;
+    double[] whiskerTops;
+    double[][] outliers;
+    double whiskerPercentile;
+
+    void updateBounds() {
+        if(medians.length == 0) return;
+
+        upperLim = reduce!max(-double.infinity,
+            chain(whiskerTops, join(outliers))
+        );
+
+        lowerLim = reduce!min(double.infinity,
+            chain(whiskerBottoms, join(outliers))
+        );
+
+        immutable diff = upperLim - lowerLim;
+        upperLim += 0.01 * diff;
+        lowerLim -= 0.01 * diff;
+
+        leftLim = -0.6;
+        rightLim = medians.length - 0.4;
+
+    }
+
+    void addDataImpl(R)(R range) {
+        auto doubles = toDoubleArray(range);
+        enforce(doubles.length,
+            "Cannot add a zero-length range to a box and whisker plot.");
+        sort(doubles);
+
+        if(doubles.length & 1) {
+            medians ~= doubles[$ / 2];
+        } else {
+            medians ~= 0.5 * doubles[$ / 2] + 0.5 * doubles[$ / 2 + 1];
+        }
+
+        double doInterp(double percentile) {
+            immutable floatIndex = percentile * (doubles.length - 1);
+            immutable floored = to!size_t(floatIndex);
+            immutable fract = floatIndex - floored;
+
+            if(fract == 1 || floored == doubles.length - 1) {
+                return doubles[floored];
+            } else {
+                return fract * doubles[floored] +
+                    (1 - fract) * doubles[floored + 1];
+            }
+        }
+
+        boxBottoms ~= doInterp(0.25);
+        boxTops ~= doInterp(0.75);
+        whiskerBottoms ~= doInterp(whiskerPercentile);
+        whiskerTops ~= doInterp(1 - whiskerPercentile);
+
+        immutable whiskerTopIndex = to!size_t(
+            ceil((1 - whiskerPercentile) * (doubles.length - 1)) + 1
+        );
+        immutable whiskerBottomIndex = to!size_t(
+            whiskerPercentile * (doubles.length - 1)
+        );
+
+        auto outlierRange = chain(
+            doubles[0..whiskerBottomIndex],
+            doubles[whiskerTopIndex..$]
+        );
+
+        outliers.length += 1;
+
+        foreach(outlier; outlierRange) {
+            outliers[$ - 1] ~= outlier;
+        }
+
+        // We're absolutely sure we don't need doubles anymore, and may
+        // be working with huge datasets.
+        delete doubles;
+
+        updateBounds();
+    }
+
+protected:
+    protected void drawPlot(
+        Figure form,
+        double leftMargin,
+        double topMargin,
+        double plotWidth,
+        double plotHeight
+    ) {
+        mixin(toPixels);
+        immutable nBoxes = medians.length;
+        immutable boxWidth = 1;
+
+        auto pen = form.getPen(getColor(0, 0, 0), 1);
+
+        foreach(boxIndex, med; medians) {
+            immutable left = boxWidth * boxIndex + 0.15 - 0.5;
+            immutable center = boxWidth * boxIndex;
+            immutable right = boxWidth * boxIndex + 0.85 - 0.5;
+            immutable wLeft = boxWidth * boxIndex + 0.35 - 0.5;
+            immutable wRight = boxWidth * boxIndex + 0.65 - 0.5;
+
+            immutable leftPixels = toPixelsX(left);
+            immutable centerPixels = toPixelsX(center);
+            immutable rightPixels = toPixelsX(right);
+            immutable wLeftPixels = toPixelsX(wLeft);
+            immutable wRightPixels = toPixelsX(wRight);
+            immutable boxTopPixels = toPixelsY(boxTops[boxIndex]);
+            immutable boxBotPixels = toPixelsY(boxBottoms[boxIndex]);
+            immutable wTopPixels = toPixelsY(whiskerTops[boxIndex]);
+            immutable wBotPixels = toPixelsY(whiskerBottoms[boxIndex]);
+
+            // Draw box.
+            form.drawLine(
+                pen,
+                PlotPoint(leftPixels, boxBotPixels),
+                PlotPoint(leftPixels, boxTopPixels)
+            );
+
+            form.drawLine(
+                pen,
+                PlotPoint(rightPixels, boxBotPixels),
+                PlotPoint(rightPixels, boxTopPixels)
+            );
+
+            form.drawLine(
+                pen,
+                PlotPoint(leftPixels, boxBotPixels),
+                PlotPoint(rightPixels, boxBotPixels)
+            );
+
+            form.drawLine(
+                pen,
+                PlotPoint(leftPixels, boxTopPixels),
+                PlotPoint(rightPixels, boxTopPixels)
+            );
+
+            // Draw median lines.
+            form.drawLine(
+                pen,
+                PlotPoint(leftPixels, toPixelsY(med)),
+                PlotPoint(rightPixels, toPixelsY(med))
+            );
+
+
+            // Draw whiskers.
+            form.drawLine(
+                pen,
+                PlotPoint(centerPixels, boxTopPixels),
+                PlotPoint(centerPixels, wTopPixels)
+            );
+
+            form.drawLine(
+                pen,
+                PlotPoint(centerPixels, boxBotPixels),
+                PlotPoint(centerPixels, wBotPixels)
+            );
+
+            form.drawLine(
+                pen,
+                PlotPoint(wLeftPixels, wBotPixels),
+                PlotPoint(wRightPixels, wBotPixels)
+            );
+
+            form.drawLine(
+                pen,
+                PlotPoint(wLeftPixels, wTopPixels),
+                PlotPoint(wRightPixels, wTopPixels)
+            );
+
+            if(whiskerPercentile == 0) continue;
+
+            // Draw outliers.
+            auto font = getFont(plot2kill.util.defaultFont,
+                10 + Figure.fontSizeAdjust);
+            scope(exit) doneWith(font);
+
+            string writeThis = "o";
+
+            immutable measure = form.measureText(writeThis, font);
+            immutable rectWidth = measure.width;
+            immutable rectHeight = measure.height;
+
+            foreach(outlier; outliers[boxIndex]) {
+                immutable curY = toPixelsY(outlier);
+                auto rect = PlotRect(
+                    centerPixels - rectWidth / 2,
+                    curY - rectHeight / 2,
+                    rectWidth,
+                    rectHeight
+                );
+
+                form.drawClippedText(writeThis, font, getColor(0, 0, 0), rect);
+            }
+        }
+    }
+
+public:
+
+    /**
+    Create a BoxPlot.  whiskerPercentile controls the percentile at which
+    data points are considered outliers and plotted as individual points.
+    For any x, a percentile of x is equivalent to a percentile of 1 - x.
+    For example, if whiskerPercentile is either 0 or 1, no data is plotted as
+    individual points and the whiskers extend all the way to the extrema.
+    */
+    static BoxPlot opCall(double whiskerPercentile = 0) {
+        enforce(whiskerPercentile >= 0 && whiskerPercentile <= 1,
+            "whiskerPercentile must be between 0 and 1.");
+        auto ret = new BoxPlot;
+        ret.whiskerPercentile = min(whiskerPercentile, 1 - whiskerPercentile);
+        return ret;
+    }
+
+    /**
+    Add data to the box plot.  data may be any combination of ranges of
+    ranges and individual ranges.
+    */
+    This addData(this This, R...)(R data)
+    if(allSatisfy!(isInputRange, R)) {
+        foreach(r; data) {
+            static if(isInputRange!(ElementType!(typeof(r)))) {
+                foreach(rr; r) addDataImpl(rr);
+            } else {
+                addDataImpl(r);
+            }
+        }
+
+        return cast(This) this;
+    }
+
+}
+
