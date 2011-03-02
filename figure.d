@@ -280,6 +280,16 @@ private:
         drawText(text, _axesFont, getColor(0, 0, 0), rect, format);
     }
 
+    // Used in setupAxes() via delegate.
+    double marginSizeX() {
+        return leftMargin;
+    }
+
+    // Used in setupAxes() via delegate.
+    double marginSizeY() {
+        return topMargin + bottomMargin;
+    }
+
     void setupAxes(
         double lower,
         double upper,
@@ -287,6 +297,7 @@ private:
         ref string[] axisText,
         double axisSize,
         ref double labelSize,
+        double delegate() marginSize
     )
     in {
         assert(upper > lower, std.conv.text(lower, '\t', upper));
@@ -320,7 +331,7 @@ private:
             fixMargins();
 
             // Prevent labels from running together on small plots.
-            if(axisSize / axisLocations.length < labelSize * 2
+            if((axisSize - marginSize()) / axisLocations.length < labelSize * 4
                && diff / tickWidth > 2) {
                 tickWidth *= 2;
                 startPoint = ceil(lower / tickWidth) * tickWidth;
@@ -721,12 +732,12 @@ public:
 
         if(!userSetXAxis) {
             setupAxes(leftLim, rightLim, xAxisLocations, xAxisText,
-                this.width, xTickLabelWidth);
+                this.width, xTickLabelWidth, &marginSizeX);
         }
 
         if(!userSetYAxis) {
             setupAxes(lowerLim, upperLim, yAxisLocations, yAxisText,
-                this.height, tickLabelHeight);
+                this.height, tickLabelHeight, &marginSizeY);
         }
 
         fixMargins();
