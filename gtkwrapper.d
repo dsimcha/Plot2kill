@@ -54,7 +54,7 @@ import gdk.Color, gdk.GC, gtk.Widget, gdk.Drawable, gtk.DrawingArea,
     gtkc.cairotypes, cairo.PdfSurface, cairo.SvgSurface,
     cairo.PostScriptSurface, cairo.Surface, cairo.ImageSurface,
     gtk.FileSelection, gtk.MessageDialog, gtk.Menu, gtk.MenuItem,
-    gtk.Entry, gtk.HBox, gtk.Label;
+    gtk.Entry, gtk.HBox, gtk.Label, gtk.FontSelectionDialog;
 
 // Default initialize GTK.
 package void defaultInit() {
@@ -124,6 +124,7 @@ Color getColor(ubyte red, ubyte green, ubyte blue) {
 /**Get a font in a GUI framework-agnostic way.*/
 struct Font {
     FontFace face;
+    string name;
     double size;
 }
 
@@ -133,7 +134,7 @@ Font getFont(string fontName, double size) {
             fontName,
             cairo_font_slant_t.NORMAL,
             cairo_font_weight_t.NORMAL
-        ), size
+        ), fontName, size
     );
 }
 
@@ -801,8 +802,62 @@ if(is(Base == gtk.Window.Window) || is(Base == gtk.MainWindow.MainWindow)) {
             auto zoomItem = new MenuItem(&popupZoomDialog, "_Zoom...");
             ret.append(zoomItem);
 
+            auto fontSubmenu = new Menu();
+            fontSubmenu.append( new MenuItem(&doFont!"titleFont", "_Title"));
+            fontSubmenu.append( new MenuItem(&doFont!"xLabelFont", "_X Label"));
+            fontSubmenu.append( new MenuItem(&doFont!"yLabelFont", "_Y Label"));
+            fontSubmenu.append( new MenuItem(&doFont!"axesFont", "_Axes"));
+
+            ret.appendSubmenu("_Fonts", fontSubmenu);
+
             ret.showAll();
             return ret;
+        }
+
+        void doFont(string which)(MenuItem menuItem) {
+            auto fb = widget.figure;
+
+            auto sp = cast(Subplot) fb;
+            if(sp) {
+                auto zoomed = sp.zoomedFigure;
+                if(zoomed) {
+                    fb = zoomed;
+                }
+            }
+
+            static if(which == "axesFont") {
+                auto toChange = cast(Figure) fb;
+                if(!toChange) {
+                    errorMessage("Can't change axes font on a Subplot.");
+                    return;
+                }
+            } else {
+                alias fb toChange;
+            }
+
+            auto dialog = new FontSelectionDialog(which);
+            auto oldFont = mixin("toChange." ~ which);
+            dialog.setFontName(text(oldFont.name, ' ', oldFont.size));
+
+            void doChanges(int responseID, Dialog d) {
+                if(responseID != GtkResponseType.GTK_RESPONSE_OK) {
+                    return;
+                }
+
+                auto newName = dialog.getFontName();
+                auto ns = newName.split();
+                enforce(ns.length >= 2);
+                auto baseName = join(ns[0..$ - 1], " ");
+                auto size = to!double(ns[$ - 1]);
+                auto newFont = getFont(baseName, size);
+                mixin("toChange." ~ which ~ "(newFont);");
+            }
+
+            dialog.addOnResponse(&doChanges);
+            dialog.run();
+            dialog.destroy();
+
+            widget.queueDraw();
         }
 
         void popupLabelDialog(MenuItem menuItem) {
