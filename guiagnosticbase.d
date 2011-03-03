@@ -1,7 +1,7 @@
 /**This file contains the GUI-agnostic base functionality of Figure and Subplot.
  * FigureBase inherits from it in all GUI ports.
  *
- * Copyright (C) 2010 David Simcha
+ * Copyright (C) 2010-2011 David Simcha
  *
  * License:
  *

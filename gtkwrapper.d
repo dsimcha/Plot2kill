@@ -44,6 +44,8 @@ version(gtk) {
 
 import plot2kill.util;
 import plot2kill.guiagnosticbase;
+import plot2kill.subplot;
+import plot2kill.figure;
 
 import gdk.Color, gdk.GC, gtk.Widget, gdk.Drawable, gtk.DrawingArea,
     gtk.MainWindow, gtk.Main, gdk.Window, gtk.Container, gtk.Window,
@@ -51,7 +53,8 @@ import gdk.Color, gdk.GC, gtk.Widget, gdk.Drawable, gtk.DrawingArea,
     gtk.FileFilter, gobject.ObjectG, cairo.Context, cairo.FontFace,
     gtkc.cairotypes, cairo.PdfSurface, cairo.SvgSurface,
     cairo.PostScriptSurface, cairo.Surface, cairo.ImageSurface,
-    gtk.FileSelection, gtk.MessageDialog;
+    gtk.FileSelection, gtk.MessageDialog, gtk.Menu, gtk.MenuItem,
+    gtk.Entry, gtk.HBox, gtk.Label;
 
 // Default initialize GTK.
 package void defaultInit() {
@@ -657,6 +660,104 @@ public:
 
 }
 
+// Convenience subclass of Dialog that has the entries for title, xlabel
+// and ylabel available in a way that's actually easy to get to.  Also
+// encapsulates the building code.
+private class LabelDialog : Dialog {
+    Entry titleEntry, xLabelEntry, yLabelEntry;
+
+    this(FigureWidget widget) {
+        super();
+        auto content = this.getContentArea();
+
+        auto fb = widget.figure;
+        auto sp = cast(Subplot) fb;
+        if(sp) {
+            auto zoomed = sp.zoomedFigure;
+            if(zoomed) fb = zoomed;
+        }
+
+        // For some reason GTK complains about null text.  Fix it here.
+        static string fixNull(string s) {
+            return (s.length == 0) ? "\0" : s;
+        }
+
+        titleEntry = new Entry(
+            fixNull(fb.title())
+        );
+        xLabelEntry = new Entry(
+            fixNull(fb.xLabel())
+        );
+        yLabelEntry = new Entry(
+            fixNull(fb.yLabel())
+        );
+
+        auto titleBox = new HBox(0, 5);
+        titleBox.add(new Label("Title     "));
+        titleBox.add(titleEntry);
+
+        auto xLabelBox = new HBox(0, 5);
+        xLabelBox.add(new Label("X Label"));
+        xLabelBox.add(xLabelEntry);
+
+        auto yLabelBox = new HBox(0, 5);
+        yLabelBox.add(new Label("Y Label"));
+        yLabelBox.add(yLabelEntry);
+
+        content.add(titleBox);
+        content.add(xLabelBox);
+        content.add(yLabelBox);
+
+        this.addButtons([StockID.OK, StockID.CANCEL],
+            [GtkResponseType.GTK_RESPONSE_OK,
+             GtkResponseType.GTK_RESPONSE_CANCEL]
+        );
+        this.setResizable(0);
+    }
+}
+
+private class ZoomDialog : Dialog {
+    Entry topEntry, bottomEntry, leftEntry, rightEntry;
+
+    this(Figure fig) {
+        super();
+        auto content = this.getContentArea();
+
+        topEntry = new Entry(to!string(fig.topMost));
+        bottomEntry = new Entry(to!string(fig.bottomMost));
+        leftEntry = new Entry(to!string(fig.leftMost));
+        rightEntry = new Entry(to!string(fig.rightMost));
+
+        auto topBox = new HBox(0, 5);
+        topBox.add(new Label("Y Max"));
+        topBox.add(topEntry);
+
+        auto bottomBox = new HBox(0, 5);
+        bottomBox.add(new Label("Y Min"));
+        bottomBox.add(bottomEntry);
+
+        auto leftBox = new HBox(0, 5);
+        leftBox.add(new Label("X Min"));
+        leftBox.add(leftEntry);
+
+        auto rightBox = new HBox(0, 5);
+        rightBox.add(new Label("X Max"));
+        rightBox.add(rightEntry);
+
+        content.add(leftBox);
+        content.add(rightBox);
+        content.add(bottomBox);
+        content.add(topBox);
+
+        this.addButtons([StockID.OK, StockID.CANCEL],
+            [GtkResponseType.GTK_RESPONSE_OK,
+             GtkResponseType.GTK_RESPONSE_CANCEL]
+        );
+        this.addButtons(["Default"], [cast(GtkResponseType) 1]);
+        this.setResizable(0);
+    }
+}
+
 /**Default plot window.  It's a subclass of either Window or MainWindow
  * depending on the template parameter.
  */
@@ -667,6 +768,7 @@ if(is(Base == gtk.Window.Window) || is(Base == gtk.MainWindow.MainWindow)) {
     class DefaultPlotWindow : Base {
     private:
         FigureWidget widget;
+        Menu rightClickMenu;
 
         immutable string[8] saveTypes =
             ["*.png", "*.bmp", "*.tiff", "*.jpg", "*.jpeg", "*.eps",
@@ -687,20 +789,167 @@ if(is(Base == gtk.Window.Window) || is(Base == gtk.MainWindow.MainWindow)) {
             return false;
         }
 
+        Menu buildRightClickMenu() {
+            auto ret = new Menu();
+
+            auto saveItem = new MenuItem(&popupSaveDialog, "_Save...");
+            ret.append(saveItem);
+
+            auto labelItem = new MenuItem(&popupLabelDialog, "_Labels...");
+            ret.append(labelItem);
+
+            auto zoomItem = new MenuItem(&popupZoomDialog, "_Zoom...");
+            ret.append(zoomItem);
+
+            ret.showAll();
+            return ret;
+        }
+
+        void popupLabelDialog(MenuItem menuItem) {
+            auto dialog = new LabelDialog(widget);
+            dialog.addOnResponse(&changeLabels);
+            dialog.showAll();
+            dialog.run();
+        }
+
+        void errorMessage(string msg) {
+            auto msgbox = new MessageDialog(this,
+                GtkDialogFlags.DESTROY_WITH_PARENT,
+                GtkMessageType.ERROR,
+                GtkButtonsType.CLOSE, msg);
+            msgbox.addOnResponse(&closeError);
+            msgbox.run();
+            return;
+        }
+
+        void subplotZoomError() {
+            errorMessage("Cannot zoom to coordinates on a subplot.");
+        }
+
+        void popupZoomDialog(MenuItem menuItem) {
+            auto sp = cast(Subplot) widget.figure;
+            if(sp && cast(Figure) sp.zoomedFigure is null) {
+                subplotZoomError();
+                return;
+            }
+
+            Figure fig;
+            if(sp) {
+                fig = cast(Figure) sp.zoomedFigure;  // Already checked for null.
+            } else {
+                fig = cast(Figure) widget.figure;
+            }
+            assert(fig);
+
+            auto dialog = new ZoomDialog(fig);
+            dialog.addOnResponse(&changeZoom);
+            dialog.showAll();
+            dialog.run();
+        }
+
+        // Change labels in response to a label dialog ok.
+        void changeLabels(int responseID, Dialog dialog) {
+            if(responseID != GtkResponseType.GTK_RESPONSE_OK) {
+                dialog.destroy();
+                return;
+            }
+
+            auto ldialog = cast(LabelDialog) dialog;
+            assert(ldialog);
+
+            auto fb = widget.figure;
+            auto sp = cast(Subplot) fb;
+
+            if(sp) {
+                auto zoomed = sp.zoomedFigure;
+                if(zoomed) fb = zoomed;
+            }
+
+            fb.title = ldialog.titleEntry.getText();
+            fb.xLabel = ldialog.xLabelEntry.getText();
+            fb.yLabel = ldialog.yLabelEntry.getText();
+
+            widget.queueDraw();
+            dialog.destroy();
+        }
+
+        void changeZoom(int responseID, Dialog dialog) {
+            auto zdialog = cast(ZoomDialog) dialog;
+            assert(zdialog);
+
+            auto fb = widget.figure;
+            Figure fig;
+            auto sp = cast(Subplot) fb;
+
+            if(sp) {
+                auto zoomed = cast(Figure) sp.zoomedFigure;
+                if(zoomed) {
+                    fig = zoomed;
+                } else {
+                    subplotZoomError();
+                    return;
+                }
+            } else {
+                fig = cast(Figure) fb;
+                assert(fig);
+            }
+
+            if(responseID == 1) {
+                fig.defaultZoom();
+            } else if(responseID == GtkResponseType.GTK_RESPONSE_OK) {
+                double newXMin, newYMin, newXMax, newYMax;
+                try {
+                    newXMin = to!double(zdialog.leftEntry.getText().strip());
+                    newXMax = to!double(zdialog.rightEntry.getText().strip());
+                    newYMin = to!double(zdialog.bottomEntry.getText().strip());
+                    newYMax = to!double(zdialog.topEntry.getText().strip());
+                } catch(ConvException) {
+                    errorMessage("Limits must be numeric.");
+                    return;
+                }
+
+                if(newXMin >= newXMax) {
+                    errorMessage("X Min must be less than X Max.");
+                    return;
+                }
+
+                if(newYMin >= newYMax) {
+                    errorMessage("Y Min must be less than Y Max.");
+                    return;
+                }
+
+                if(!isFinite(newYMin) || !isFinite(newYMax) ||
+                   !isFinite(newXMin) || !isFinite(newXMax)) {
+                    errorMessage("Limits must be finite, not infinity or NaN.");
+                    return;
+                }
+
+                fig.xLim(newXMin, newXMax);
+                fig.yLim(newYMin, newYMax);
+            }
+
+            dialog.destroy();
+            widget.queueDraw();
+        }
+
         void closeError(int response, Dialog d) {
             enforce(response == GtkResponseType.GTK_RESPONSE_CLOSE);
             d.destroy();
         }
 
+        void fileError(string eString) {
+            errorMessage("File could not be successfully written.  " ~ eString);
+        }
 
-        void errDialog(string eString) {
-           auto msgbox = new MessageDialog(this,
-              GtkDialogFlags.DESTROY_WITH_PARENT,
-              GtkMessageType.ERROR,
-              GtkButtonsType.CLOSE,
-              "File could not be successfully written.  " ~ eString);
-            msgbox.addOnResponse(&closeError);
-            msgbox.run();
+        // Bring up menu on right click.
+        bool clickEvent(GdkEventButton* event, Widget widget) {
+            if(event.button != rightClick) {
+                return false;
+            }
+
+            rightClickMenu.popup(null, null, null, null, rightClick, 0);
+
+            return true;
         }
 
         version(Windows) {
@@ -744,24 +993,18 @@ if(is(Base == gtk.Window.Window) || is(Base == gtk.MainWindow.MainWindow)) {
                     widget.figure.saveToFile
                         (name, fileType, widget.getWidth, widget.getHeight);
                 } catch(Exception e) {
-                    errDialog(e.toString());
+                    fileError(e.toString());
                 }
 
                 d.destroy();
             }
 
-            bool clickEvent(GdkEventButton* event, Widget widget) {
-                if(event.button != rightClick) {
-                    return false;
-                }
-
-
+            void popupSaveDialog(MenuItem menuItem) {
                 auto fc = new FileSelection("Save plot...");
                 fc.setSelectMultiple(0);
                 fc.addOnResponse(&saveDialogResponse);
 
                 fc.run();
-                return true;
             }
 
         } else {
@@ -790,21 +1033,15 @@ if(is(Base == gtk.Window.Window) || is(Base == gtk.MainWindow.MainWindow)) {
                     widget.figure.saveToFile
                         (name, fileType, widget.getWidth, widget.getHeight);
                 } catch(Exception e) {
-                    errDialog(e.toString());
+                    fileError(e.toString());
                 }
 
                 d.destroy();
             }
 
-
-            bool clickEvent(GdkEventButton* event, Widget widget) {
-                if(event.button != rightClick) {
-                    return false;
-                }
-
-
+            void popupSaveDialog(MenuItem menuItem) {
                 auto fc = new FileChooserDialog("Save plot...", this,
-                   GtkFileChooserAction.SAVE);
+                GtkFileChooserAction.SAVE);
                 fc.setDoOverwriteConfirmation(1);  // Why isn't this the default?
                 fc.addOnResponse(&saveDialogResponse);
 
@@ -816,7 +1053,6 @@ if(is(Base == gtk.Window.Window) || is(Base == gtk.MainWindow.MainWindow)) {
                 }
 
                 fc.run();
-                return true;
             }
         }
 
@@ -837,6 +1073,8 @@ if(is(Base == gtk.Window.Window) || is(Base == gtk.MainWindow.MainWindow)) {
             );
 
             this.addOnButtonPress(&clickEvent);
+            this.rightClickMenu = buildRightClickMenu();
+
             widget.addOnSizeAllocate(&widget.parentSizeChanged);
             widget.showAll();
             widget.queueDraw();

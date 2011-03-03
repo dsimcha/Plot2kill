@@ -4,7 +4,7 @@
  * many of my use cases from, and Plot2Kill probably would work nicely with
  * dstats.
  *
- * Copyright (C) 2010 David Simcha
+ * Copyright (C) 2010-2011 David Simcha
  *
  * License:
  *
@@ -32,8 +32,7 @@
  * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS IN THE SOFTWARE.
  */
-import std.conv, std.exception
-, std.algorithm, std.typecons,
+import std.conv, std.exception, std.algorithm, std.typecons,
     std.traits, std.math, std.array, std.range, std.functional, core.thread,
     std.stdio;
 
@@ -56,16 +55,16 @@ import dstats.all, std.stdio;
 void main(string[] args)
 {
 
-    auto boxFig = BoxPlot(0.03).addData(
+    auto boxFig = BoxPlot(0.05).addData(
         randArray!rNorm(100, 0, 1),
         randArray!rNorm(100, 0, 0.5),
-        randArray!rNorm(100, 0.5, 2),
+        randArray!rNorm(100, 1, 2),
         randArray!rExponential(100, 0.5),
-        randArray!uniform(100, -1.0, 1.0)
+        randArray!uniform(100, -2.0, 2.0)
     ).toFigure.rotatedXTick(true)
         .xTickLabels(iota(5), [
-            "Normal(0, 1)", "Normal(0, 0.5)", "Normal(0.5, 2)",
-            "Exponential(0.5)", "Uniform(-1, 1)"]
+            "Normal(0, 1)", "Normal(0, 0.5)", "Normal(1, 2)",
+            "Exponential(0.5)", "Uniform(-2, 2)"]
         );
 
     boxFig.showAsMain();
@@ -131,6 +130,7 @@ void main(string[] args)
     barFig.xTickLabels(bars.centers, ["Plan A", "Plan B", "Plan C"]);
     barFig.title = "Useless Plans";
     barFig.yLabel = "Screwedness";
+    barFig.rotatedXTick = true;
     barFig.showAsMain();
 
     auto qq = QQPlot(

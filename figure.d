@@ -1,7 +1,7 @@
 /**This file contains all of the plot types and Figure, which is a container
  * that draws one or more Plots onto a drawable surface.
  *
- * Copyright (C) 2010 David Simcha
+ * Copyright (C) 2010-2011 David Simcha
  *
  * License:
  *
@@ -614,6 +614,26 @@ public:
      */
     This yLim(this This)(double newLower, double newUpper) {
         setLim(newLower, newUpper, lowerLim, upperLim);
+        return cast(This) this;
+    }
+
+    /**
+    Set the zoom back to the default value, i.e. just large enough to fit
+    everything on the screen.
+    */
+    This defaultZoom(this This)() {
+        upperLim = -double.infinity;
+        lowerLim = double.infinity;
+        leftLim = double.infinity;
+        rightLim = -double.infinity;
+
+        foreach(plot; plotData) {
+            upperLim = max(upperLim, plot.topMost);
+            rightLim = max(rightLim, plot.rightMost);
+            leftLim = min(leftLim, plot.leftMost);
+            lowerLim = min(lowerLim, plot.bottomMost);
+        }
+
         return cast(This) this;
     }
 

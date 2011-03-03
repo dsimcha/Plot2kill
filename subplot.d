@@ -1,7 +1,7 @@
 /**This module contains the Subplot object.  This allows placing multiple
  * plots on a single form in a simple grid arrangement..
  *
- * Copyright (C) 2010 David Simcha
+ * Copyright (C) 2010-2011 David Simcha
  *
  * License:
  *
@@ -63,7 +63,7 @@ private:
     enum int rightMargin = 10;  // No label here so it can be an enum.
 
     FigureBase[][] figs;
-    FigureBase zoomedFigure;
+    FigureBase _zoomedFigure;
 
     invariant() {
         assert(figs.length == nRows);
@@ -308,6 +308,13 @@ public:
 
          return cast(This) this;
      }
+
+     /**
+     Returns the zoomed figure, or null if no figure is currently zoomed.
+     */
+     FigureBase zoomedFigure() {
+         return _zoomedFigure;
+     }
 };
 
 version(dfl) {
@@ -493,14 +500,14 @@ package class SubplotWidget : FigureWidget {
                 return false;
             }
 
-            if(zoomedFigure is null) {
+            if(_zoomedFigure is null) {
                 auto toZoom = getFigureAt(press.x, press.y);
                 if(toZoom !is null) {
-                    zoomedFigure = toZoom;
+                    _zoomedFigure = toZoom;
                     draw();
                 }
             } else {
-                zoomedFigure = null;
+                _zoomedFigure = null;
                 draw();
             }
 
