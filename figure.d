@@ -2889,32 +2889,32 @@ protected:
             immutable wBotPixels = toPixelsY(whiskerBottoms[boxIndex]);
 
             // Draw box.
-            form.drawLine(
+            form.drawClippedLine(
                 pen,
                 PlotPoint(leftPixels, boxBotPixels),
                 PlotPoint(leftPixels, boxTopPixels)
             );
 
-            form.drawLine(
+            form.drawClippedLine(
                 pen,
                 PlotPoint(rightPixels, boxBotPixels),
                 PlotPoint(rightPixels, boxTopPixels)
             );
 
-            form.drawLine(
+            form.drawClippedLine(
                 pen,
                 PlotPoint(leftPixels, boxBotPixels),
                 PlotPoint(rightPixels, boxBotPixels)
             );
 
-            form.drawLine(
+            form.drawClippedLine(
                 pen,
                 PlotPoint(leftPixels, boxTopPixels),
                 PlotPoint(rightPixels, boxTopPixels)
             );
 
             // Draw median lines.
-            form.drawLine(
+            form.drawClippedLine(
                 pen,
                 PlotPoint(leftPixels, toPixelsY(med)),
                 PlotPoint(rightPixels, toPixelsY(med))
@@ -2922,25 +2922,25 @@ protected:
 
 
             // Draw whiskers.
-            form.drawLine(
+            form.drawClippedLine(
                 pen,
                 PlotPoint(centerPixels, boxTopPixels),
                 PlotPoint(centerPixels, wTopPixels)
             );
 
-            form.drawLine(
+            form.drawClippedLine(
                 pen,
                 PlotPoint(centerPixels, boxBotPixels),
                 PlotPoint(centerPixels, wBotPixels)
             );
 
-            form.drawLine(
+            form.drawClippedLine(
                 pen,
                 PlotPoint(wLeftPixels, wBotPixels),
                 PlotPoint(wRightPixels, wBotPixels)
             );
 
-            form.drawLine(
+            form.drawClippedLine(
                 pen,
                 PlotPoint(wLeftPixels, wTopPixels),
                 PlotPoint(wRightPixels, wTopPixels)
