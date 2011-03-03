@@ -129,11 +129,17 @@ struct Font {
 }
 
 Font getFont(string fontName, double size) {
+    auto slant = (fontName.indexOf("oblique", CaseSensitive.no) > -1) ?
+        cairo_font_slant_t.OBLIQUE : cairo_font_slant_t.NORMAL;
+    auto weight = (fontName.indexOf("bold", CaseSensitive.no) > -1) ?
+        cairo_font_weight_t.BOLD : cairo_font_weight_t.NORMAL;
+
+
     return Font(
         Context.toyFontFaceCreate(
             fontName,
-            cairo_font_slant_t.NORMAL,
-            cairo_font_weight_t.NORMAL
+            slant,
+            weight
         ), fontName, size
     );
 }
@@ -693,6 +699,10 @@ private class LabelDialog : Dialog {
             fixNull(fb.yLabel())
         );
 
+        titleEntry.setActivatesDefault(1);
+        xLabelEntry.setActivatesDefault(1);
+        yLabelEntry.setActivatesDefault(1);
+
         auto titleBox = new HBox(0, 5);
         titleBox.add(new Label("Title     "));
         titleBox.add(titleEntry);
@@ -713,6 +723,7 @@ private class LabelDialog : Dialog {
             [GtkResponseType.GTK_RESPONSE_OK,
              GtkResponseType.GTK_RESPONSE_CANCEL]
         );
+        this.setDefaultResponse(GtkResponseType.GTK_RESPONSE_OK);
         this.setResizable(0);
     }
 }
@@ -728,6 +739,11 @@ private class ZoomDialog : Dialog {
         bottomEntry = new Entry(to!string(fig.bottomMost));
         leftEntry = new Entry(to!string(fig.leftMost));
         rightEntry = new Entry(to!string(fig.rightMost));
+
+        topEntry.setActivatesDefault(1);
+        bottomEntry.setActivatesDefault(1);
+        leftEntry.setActivatesDefault(1);
+        rightEntry.setActivatesDefault(1);
 
         auto topBox = new HBox(0, 5);
         topBox.add(new Label("Y Max"));
@@ -754,6 +770,7 @@ private class ZoomDialog : Dialog {
             [GtkResponseType.GTK_RESPONSE_OK,
              GtkResponseType.GTK_RESPONSE_CANCEL]
         );
+        this.setDefaultResponse(GtkResponseType.GTK_RESPONSE_OK);
         this.addButtons(["Default"], [cast(GtkResponseType) 1]);
         this.setResizable(0);
     }
