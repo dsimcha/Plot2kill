@@ -1520,14 +1520,15 @@ auto withoutCaffeine = [8, 6, 3];
 auto withCaffeine = [5, 3, 1];
 auto sleepinessPlot = groupedBar(
     iota(3), [withoutCaffeine, withCaffeine], 0.6,
-        ["W/ Caffeine", "W/o Caffeine"],
-        [getColor(64, 64, 255), getColor(255, 64, 64)]
+    ["W/o Caffeine", "W/ Caffeine"],
+    [getColor(64, 64, 255), getColor(255, 64, 64)]
 );
 auto sleepinessFig = Figure(sleepinessPlot)
     .title("Sleepiness Survey")
     .yLabel("Sleepiness Rating")
     .xLabel("Activity")
     .legendLocation(LegendLocation.right)
+    .horizontalGrid(true)
     .xTickLabels(
         iota(3),
         ["In Meeting", "On Phone", "Coding"]
