@@ -55,7 +55,7 @@ import gdk.Color, gdk.GC, gtk.Widget, gdk.Drawable, gtk.DrawingArea,
     cairo.PostScriptSurface, cairo.Surface, cairo.ImageSurface,
     gtk.FileSelection, gtk.MessageDialog, gtk.Menu, gtk.MenuItem,
     gtk.Entry, gtk.HBox, gtk.Label, gtk.FontSelectionDialog, gtk.RadioButton,
-    gtk.HSeparator;
+    gtk.HSeparator, gtk.CheckButton, gtk.SeparatorMenuItem;
 
 // Default initialize GTK.
 package void defaultInit() {
@@ -883,6 +883,83 @@ private class LegendDialog : Dialog {
     }
 }
 
+class TickDialog(char xy) : Dialog {
+    Entry locEntry, labelEntry;
+    CheckButton rotateButton, gridLineButton;
+    enum upperXY = cast(char) (xy + ('X' - 'x'));
+    enum grid = (xy == 'x') ? "vertical" : "horizontal";
+
+    this(Figure fig) {
+        super();
+        setTitle(upperXY ~ " Ticks");
+        auto content = this.getContentArea();
+
+        auto instructions = new Label(
+            "Enter labels and locations as comma-separated lists. Commas may\n" ~
+            "be escaped using the \\ character.  Labels may be left blank, in\n" ~
+            "which case they will be set to the string representations of locations."
+        );
+        content.add(instructions);
+
+        content.add(new HSeparator());
+
+        auto locBox = new HBox(0, 5);
+        locBox.add(new Label("Locations"));
+        locEntry = new Entry();
+
+        auto stringLocs = mixin("to!(string[])(fig." ~ xy ~ "AxisLocations)");
+        auto joined = std.string.join(stringLocs, ", ");
+        locEntry.setText(joined);
+        locEntry.setSizeRequest(400, locEntry.getHeight());
+        locEntry.setActivatesDefault(1);
+        locBox.add(locEntry);
+        content.add(locBox);
+
+        auto labelBox = new HBox(0, 5);
+        labelBox.add(new Label("Labels     "));
+        labelEntry = new Entry();
+
+        auto labelText = mixin("fig." ~ xy ~ "AxisText");
+        string flattened;
+
+        foreach(i, elem; labelText) {
+            elem = elem.replace(r"\", r"\\").replace(",", r"\,");
+            flattened ~= elem;
+            if(i < labelText.length - 1) {
+                flattened ~= ", ";
+            }
+        }
+
+        labelEntry.setText(flattened);
+        labelEntry.setSizeRequest(400, locEntry.getHeight());
+        labelEntry.setActivatesDefault(1);
+        labelBox.add(labelEntry);
+        content.add(labelBox);
+
+        rotateButton = new CheckButton("Rotate Label Text");
+        immutable rotated = mixin("fig.rotated" ~ upperXY ~ "Tick()");
+        rotateButton.setActive(cast(int) rotated);
+
+        gridLineButton = new CheckButton("Grid Lines");
+        immutable grid = mixin("fig." ~ grid ~ "Grid()");
+        gridLineButton.setActive(cast(int) grid);
+
+        content.add(new HSeparator());
+        auto checkHbox = new HBox(0, 5);
+        checkHbox.add(rotateButton);
+        checkHbox.add(gridLineButton);
+        content.add(checkHbox);
+
+        this.addButtons([StockID.OK, StockID.CANCEL],
+            [GtkResponseType.GTK_RESPONSE_OK,
+             GtkResponseType.GTK_RESPONSE_CANCEL]
+        );
+        this.setDefaultResponse(GtkResponseType.GTK_RESPONSE_OK);
+        this.addButtons(["Default"], [cast(GtkResponseType) 1]);
+        this.setResizable(0);
+    }
+}
+
 /**Default plot window.  It's a subclass of either Window or MainWindow
  * depending on the template parameter.
  */
@@ -928,6 +1005,13 @@ if(is(Base == gtk.Window.Window) || is(Base == gtk.MainWindow.MainWindow)) {
 
             auto zoomItem = new MenuItem(&popupZoomDialog, "_Zoom...");
             ret.append(zoomItem);
+
+            ret.append(new SeparatorMenuItem());
+            auto xTickItem = new MenuItem(&popupTickDialog!'x', "_X Ticks...");
+            auto yTickItem = new MenuItem(&popupTickDialog!'y', "_Y Ticks...");
+            ret.append(xTickItem);
+            ret.append(yTickItem);
+            ret.append(new SeparatorMenuItem());
 
             auto fontSubmenu = new Menu();
             fontSubmenu.append( new MenuItem(&doFont!"titleFont", "_Title"));
@@ -986,6 +1070,81 @@ if(is(Base == gtk.Window.Window) || is(Base == gtk.MainWindow.MainWindow)) {
             dialog.destroy();
 
             widget.queueDraw();
+        }
+
+        void popupTickDialog(char xy)(MenuItem menuItem) {
+            auto fb = widget.figure;
+            auto sp = cast(Subplot) fb;
+
+            Figure fig;
+            if(sp) {
+                fig = cast(Figure) sp.zoomedFigure;
+            } else {
+                fig = cast(Figure) fb;
+            }
+
+            if(!fig) {
+                errorMessage("Cannot change " ~ xy ~ " ticks on a subplot.");
+                return;
+            }
+
+            auto dialog = new TickDialog!xy(fig);
+
+            void changeTicks(int responseID, Dialog dummy) {
+                if(responseID == GtkResponseType.GTK_RESPONSE_CANCEL) {
+                    dialog.destroy();
+                    return;
+                }
+
+                auto rotation = cast(bool) dialog.rotateButton.getActive();
+                auto grid = cast(bool) dialog.gridLineButton.getActive();
+                enum upperXY = dialog.upperXY;
+                enum gridStr = dialog.grid;
+                mixin("fig.rotated" ~ upperXY ~ "Tick(rotation);");
+                mixin("fig." ~ gridStr ~ "Grid(grid);");
+
+                if(responseID == 1) {  // Set to default.
+                    mixin("fig.default" ~ upperXY ~ "Tick();");
+                    dialog.destroy();
+                    queueDraw();
+                    return;
+                }
+
+                double[] locations;
+                auto locText = dialog.locEntry.getText();
+                auto locSplit = splitEscape(locText);
+                try {
+                    locations = to!(double[])(locSplit);
+                } catch(ConvException) {
+                    errorMessage("Locations must be numeric.");
+                    return;
+                }
+
+                if(!filter!(not!isFinite)(locations).empty) {
+                    errorMessage("Locations must be finite, not NaN or infinity.");
+                    return;
+                }
+
+
+                auto labelText = dialog.labelEntry.getText();
+                if(labelText.strip().length == 0) {
+                    labelText = locText;
+                }
+
+                auto labels = splitEscape(labelText);
+                if(labels.length != locations.length) {
+                    errorMessage("Locations and labels must be same length.");
+                    return;
+                }
+
+                mixin("fig." ~ xy ~ "TickLabels(locations, labels);");
+                dialog.destroy();
+                queueDraw();
+            }
+
+            dialog.addOnResponse(&changeTicks);
+            dialog.showAll();
+            dialog.run();
         }
 
         void popupLegendDialog(MenuItem menuItem) {

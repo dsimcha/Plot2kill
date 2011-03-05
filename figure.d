@@ -63,12 +63,6 @@ private:
     double leftLim = double.infinity;
     double rightLim = -double.infinity;
 
-    double[] xAxisLocations;
-    string[] xAxisText;
-
-    double[] yAxisLocations;
-    string[] yAxisText;
-
     // These control whether to auto set the axes.
     bool userSetXAxis = false;
     bool userSetYAxis = false;
@@ -578,6 +572,12 @@ protected:
 package:
     Plot[] plotData;
 
+    double[] xAxisLocations;
+    string[] xAxisText;
+
+    double[] yAxisLocations;
+    string[] yAxisText;
+
 public:
 
     override int defaultWindowWidth() {
@@ -859,6 +859,15 @@ public:
         return cast(This) this;
     }
 
+    /**
+    Resets the X tick labels to the default, effectively undoing a call to
+    xTickLabels.
+    */
+    This defaultXTick(this This)() {
+        userSetXAxis = false;
+        return cast(This) this;
+    }
+
     /**Set the Y axis labels.  If text is null (default) the axis text is
      * just the text of the axis locations.  R should be any range with
      * length identical to text (unless text is null) and elements implicitly
@@ -877,6 +886,15 @@ public:
             yAxisText = doublesToStrings(yAxisLocations);
         }
 
+        return cast(This) this;
+    }
+
+    /**
+    Resets the X tick labels to the default, effectively undoing a call to
+    xTickLabels.
+    */
+    This defaultYTick(this This)() {
+        userSetYAxis = false;
         return cast(This) this;
     }
 

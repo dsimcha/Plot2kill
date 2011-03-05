@@ -34,7 +34,7 @@ module plot2kill.util;
 
 public import std.conv, std.math, std.array, std.range, std.algorithm,
     std.exception, std.traits, std.stdio, std.string, core.memory, std.path,
-    std.typecons;
+    std.typecons, std.functional;
 
 import plot2kill.figure : NoCopy;
 
@@ -297,4 +297,36 @@ void writeBitmap(Pixel)(Pixel[] pix, File handle, int width, int height) {
 
     handle.rawWrite(buf.arr);
     handle.flush();
+}
+
+// Splits a stirng by a comma delimiter, but ignores escaped delimiters, and
+// removes escape characters.
+string[] splitEscape(string input) {
+    bool inEscape;
+    string[] ret;
+    string cur;
+
+    foreach(i, char c; input) {
+        if(c == '\\' && !inEscape) {
+            inEscape = true;
+            continue;
+        }
+
+        if(c == ',' && !inEscape) {
+            ret ~= cur.strip();
+            cur = null;
+            continue;
+        }
+
+        cur ~= c;
+        inEscape = false;
+    }
+
+    if(cur.length) ret ~= cur.strip();
+    return ret;
+}
+
+unittest {
+    assert(splitEscape(r"Testing\, Separation, Using \\ backslashes") ==
+        [r"Testing, Separation", r"Using \ backslashes"]);
 }
