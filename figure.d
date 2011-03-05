@@ -240,6 +240,7 @@ private:
         immutable measurements = measureLegendHeight();
         if(measurements.height == 0) return;  // No legend.
         immutable rowHeight = measurements.height / measurements.nRows;
+        immutable smallLetterHeight = measureText("e", legendFont()).height;
 
         // This needs to be precomputed for centering purposes.
         double[] rowStarts;
@@ -296,9 +297,11 @@ private:
             drawText(plot.legendText(), legendFont(), black, textRect,
                 TextAlignment.Left);
 
-            auto ySlack = (textRect.height - legendSymbolSize) / 2;
+            auto ySlack = (smallLetterHeight - legendSymbolSize) / 2;
             auto where = PlotRect(
-                curX, textRect.y + ySlack, legendSymbolSize, legendSymbolSize);
+                curX, curY + rowHeight - ySlack - legendSymbolSize,
+                legendSymbolSize, legendSymbolSize
+            );
             plot.drawLegendSymbol(this, where);
 
             curX = nextX;
