@@ -59,13 +59,14 @@ void main(string[] args)
     auto withCaffeine = [5, 3, 1];
     auto sleepinessPlot = groupedBar(
         iota(3), [withoutCaffeine, withCaffeine], 0.6,
-        ["Without Caffeine", "With Caffeine"],
+        ["W/ Caffeine", "W/o Caffeine"],
         [getColor(64, 64, 255), getColor(255, 64, 64)]
     );
     auto sleepinessFig = Figure(sleepinessPlot)
         .title("Sleepiness Survey")
         .yLabel("Sleepiness Rating")
         .xLabel("Activity")
+        .legendLocation(LegendLocation.right)
         .xTickLabels(
             iota(3),
             ["In Meeting", "On Phone", "Coding"]
@@ -78,7 +79,8 @@ void main(string[] args)
         randArray!rNorm(100, 1, 2),
         randArray!rExponential(100, 0.5),
         randArray!uniform(100, -2.0, 2.0)
-    ).toFigure.rotatedXTick(true)
+    ).toFigure
+        .rotatedXTick(true)
         .xTickLabels(iota(5), [
             "Normal(0, 1)", "Normal(0, 0.5)", "Normal(1, 2)",
             "Exponential(0.5)", "Uniform(-2, 2)"]
@@ -134,6 +136,7 @@ void main(string[] args)
     binom.xLabel = "N Successes";
     binom.yLabel = "Probability";
     binom.xTickLabels(array(iota(0, 9, 1)));
+    binom.legendLocation = LegendLocation.top;
     binom.xLim(0, 8);
     binom.showAsMain();
 

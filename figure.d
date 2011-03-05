@@ -73,6 +73,9 @@ private:
     bool userSetXAxis = false;
     bool userSetYAxis = false;
 
+    bool _horizontalGrid;
+    bool _verticalGrid;
+
     double topMargin = 10;
     double bottomMargin = 10;
     double leftMargin = 10;
@@ -90,6 +93,8 @@ private:
 
     Font _axesFont;
     Font _legendFont;
+
+    LegendLocation _legendLoc = LegendLocation.bottom;
 
     void fixTickSizes() {
         void fixTickLabelSize(ref double toFix, string[] axisText) {
@@ -113,36 +118,46 @@ private:
 
     void fixMargins() {
         fixTickSizes();
-        immutable legendHeight = measureLegendHeight().height;
+        immutable legendMeasure = measureLegend();
+        immutable legendHeight = legendMeasure.height;
+        immutable legendWidth = legendMeasure.width;
+
         immutable xLabelSize = measureText(xLabel(), xLabelFont());
         immutable bottomTickHeight = (rotatedXTick()) ?
             xTickLabelWidth : tickLabelHeight;
         bottomMargin = bottomTickHeight + tickPixels + xLabelSize.height
-            + legendHeight + 20;
+            + (legendLocation() == LegendLocation.bottom) * legendHeight + 20;
 
-        topMargin = measureText(title(), titleFont(), plotWidth).height + 20;
+        topMargin = measureText(title(), titleFont(), plotWidth).height
+            + (legendLocation() == LegendLocation.top) * legendHeight + 20;
 
-        version(noRotatedText) {
-            leftMargin = measureText(yLabel(), yLabelFont(), 1).width +
-                tickPixels + yTickLabelWidth + 30;
-        } else {
-            leftMargin = measureText(yLabel(), yLabelFont()).height +
-                         tickPixels + yTickLabelWidth + 30;
-        }
+        leftMargin = measureText(yLabel(), yLabelFont()).height +
+             tickPixels + yTickLabelWidth
+             + (legendLocation() == LegendLocation.left) * legendWidth + 30;
+
+        rightMargin = (legendLocation() == LegendLocation.right)
+            * legendWidth + 30;
     }
 
-    Tuple!(double, "height", int, "nRows") measureLegendHeight() {
+    Tuple!(double, "height", double, "width", int, "nRows") measureLegend() {
+        immutable alwaysWrap = legendLocation() == LegendLocation.right ||
+            legendLocation() == LegendLocation.left;
+
         PlotSize ret = PlotSize(0, 0);
 
         double maxHeight = 0;
+        double maxWidth = 0;
         int nRows = 1;
         double rowPos = legendMarginHoriz;
+
         foreach(plot; plotData) {
             auto itemSize = plot.measureLegend(legendFont(), this);
             maxHeight = max(maxHeight, itemSize.height);
+            maxWidth = max(maxWidth, itemSize.width);
 
-            if(itemSize.width + rowPos >= this.width - legendMarginHoriz
-            && rowPos > legendMarginHoriz) {
+            if(alwaysWrap ||
+            (itemSize.width + rowPos >= this.width - legendMarginHoriz
+            && rowPos > legendMarginHoriz)) {
                 nRows++;
                 rowPos = itemSize.width + legendMarginHoriz;
             }
@@ -152,6 +167,7 @@ private:
 
         return typeof(return)(
             (maxHeight + legendMarginVert) * nRows,
+            maxWidth + legendMarginHoriz,
             nRows
         );
     }
@@ -173,8 +189,9 @@ private:
             return;
         }
 
+        auto height = measureText(title(), titleFont()).height;
         auto rect = PlotRect(leftMargin,
-            topMargin / 4, this.plotWidth, topMargin * 3 / 4);
+            10, this.plotWidth, height);
         auto format = TextAlignment.Center;
         drawText(title(), titleFont(), getColor(0, 0, 0), rect, format);
     }
@@ -186,7 +203,8 @@ private:
 
         immutable textSize = measureText(xLabel(), xLabelFont());
         immutable yTop = this.height - textSize.height - 10
-            - measureLegendHeight().height;
+            - (legendLocation() == LegendLocation.bottom) *
+                measureLegend().height;
         auto rect = PlotRect(leftMargin, yTop,
             this.width - leftMargin - rightMargin, textSize.height);
 
@@ -201,7 +219,10 @@ private:
 
         immutable textSize = measureText(yLabel(), yLabelFont());
         immutable margin = (plotHeight - textSize.width) / 2 + topMargin;
-        auto rect = PlotRect(10, margin, textSize.height, textSize.width);
+        immutable xCoord = 10 + measureLegend().width
+            * (legendLocation() == LegendLocation.left);
+
+        auto rect = PlotRect(xCoord, margin, textSize.height, textSize.width);
 
         drawRotatedText(yLabel(),
             yLabelFont(), getColor(0, 0, 0), rect, TextAlignment.Center);
@@ -236,16 +257,33 @@ private:
     }
 
     void drawLegend() {
-        immutable measurements = measureLegendHeight();
+        immutable loc = legendLocation();
+        if(loc == LegendLocation.top || loc == LegendLocation.bottom) {
+            drawLegendImplTopBottom();
+        } else {
+            drawLegendImplLeftRight();
+        }
+    }
+
+    void drawLegendImplTopBottom() {
+        immutable measurements = measureLegend();
         if(measurements.height == 0) return;  // No legend.
         immutable rowHeight = measurements.height / measurements.nRows;
-        immutable smallLetterHeight = measureText("e", legendFont()).height;
 
         // This needs to be precomputed for centering purposes.
         double[] rowStarts;
 
         double curX = legendMarginHoriz;
-        double curY = this.height - measurements.height - 10;
+
+        immutable loc = legendLocation();
+        double curY;
+        if(loc == LegendLocation.bottom) {
+            curY = this.height - measurements.height - 10;
+        } else {
+            assert(loc == LegendLocation.top);
+            curY = measureText(title(), titleFont()).height + 10;
+        }
+
         size_t rowStartIndex = 0;
 
         foreach(plot; plotData) {
@@ -266,7 +304,6 @@ private:
         auto rowSize = curX - legendMarginHoriz;
         rowStarts ~= max(0, (this.width - rowSize) / 2);
 
-        auto black = getColor(0, 0, 0);
         curX = rowStarts[rowStartIndex];
         double nextX;
 
@@ -282,29 +319,51 @@ private:
                 nextX = curX;
             }
 
-            nextX = curX + itemSize.width + legendMarginHoriz;
-
-            immutable textSize = measureText(plot.legendText(), legendFont());
-            assert(textSize.height <= rowHeight);
-
-            immutable textX = curX + legendSymbolSize + legendSymbolTextSpace;
-            immutable textDiff = (rowHeight - textSize.height);
-            auto textRect = PlotRect(textX, curY + textDiff,
-                textSize.width,
-                textSize.height
-            );
-            drawText(plot.legendText(), legendFont(), black, textRect,
-                TextAlignment.Left);
-
-            auto ySlack = (smallLetterHeight - legendSymbolSize) / 2;
-            auto where = PlotRect(
-                curX, curY + rowHeight - ySlack - legendSymbolSize,
-                legendSymbolSize, legendSymbolSize
-            );
-            plot.drawLegendSymbol(this, where);
-
-            curX = nextX;
+            drawLegendElem(curX, curY, plot, rowHeight);
+            curX += itemSize.width + legendMarginHoriz;
         }
+    }
+
+    void drawLegendImplLeftRight() {
+        int nRows;
+        foreach(plot; plotData) {
+            if(plot.legendText().length) nRows++;
+        }
+
+        immutable measurements = measureLegend();
+        immutable rowHeight = (measurements.height / measurements.nRows);
+
+        double curY = this.height / 2 - nRows * rowHeight / 2;
+        immutable loc = legendLocation();
+        immutable x = (loc == LegendLocation.left) ? 10 :
+            (this.width - measurements.width - 10);
+
+        foreach(plot; plotData) if(plot.legendText().length) {
+            drawLegendElem(x, curY, plot, rowHeight);
+            curY += rowHeight;
+        }
+    }
+
+    void drawLegendElem(double curX, double curY, Plot plot, double rowHeight) {
+        immutable textSize = measureText(plot.legendText(), legendFont());
+        assert(textSize.height <= rowHeight);
+
+        immutable smallLetterHeight = measureText("e", legendFont()).height;
+        immutable textX = curX + legendSymbolSize + legendSymbolTextSpace;
+        immutable textDiff = (rowHeight - textSize.height);
+        auto textRect = PlotRect(textX, curY + textDiff,
+            textSize.width,
+            textSize.height
+        );
+        drawText(plot.legendText(), legendFont(), getColor(0, 0, 0), textRect,
+            TextAlignment.Left);
+
+        auto ySlack = (smallLetterHeight - legendSymbolSize) / 2;
+        auto where = PlotRect(
+            curX, curY + rowHeight - ySlack - legendSymbolSize,
+            legendSymbolSize, legendSymbolSize
+        );
+        plot.drawLegendSymbol(this, where);
     }
 
     // Controls the space between a tick line and the tick label.
@@ -318,7 +377,7 @@ private:
             PlotPoint(wherePixels, this.height - bottomMargin + tickPixels)
         );
 
-        if(verticalGrid) {
+        if(verticalGrid()) {
             drawLine(gridPen,
                 PlotPoint(wherePixels, topMargin),
                 PlotPoint(wherePixels, this.height - bottomMargin));
@@ -365,7 +424,7 @@ private:
             return;
         }
 
-        if(horizontalGrid) {
+        if(horizontalGrid()) {
             drawLine(
                 gridPen,
                 PlotPoint(leftMargin, this.height - wherePixels),
@@ -802,11 +861,38 @@ public:
         return cast(This) this;
     }
 
-    /**Determines whether horizontal gridlines are drawn.  Default is false.*/
-    bool horizontalGrid = false;
+    /**Determines whether vertical gridlines are drawn.  Default is false.*/
+    bool verticalGrid()() {
+        return _verticalGrid;
+    }
 
-    /**Determines whether vertical gridlines are drawn. Default is false.*/
-    bool verticalGrid = false;
+    ///
+    This verticalGrid(this This)(bool val) {
+        this._verticalGrid = val;
+        return cast(This) this;
+    }
+
+    /**Determines whether horizontal gridlines are drawn.  Default is false.*/
+    bool horizontalGrid()() {
+        return _horizontalGrid;
+    }
+
+    ///
+    This horizontalGrid(this This)(bool val) {
+        this._horizontalGrid = val;
+        return cast(This) this;
+    }
+
+    ///
+    LegendLocation legendLocation()() {
+        return _legendLoc;
+    }
+
+    ///
+    This legendLocation(this This)(LegendLocation newLoc) {
+        this._legendLoc = newLoc;
+        return cast(This) this;
+    }
 
     /**The leftmost point on the figure.*/
     double leftMost()  {
@@ -911,6 +997,21 @@ public:
         ImplicitMain.addForm(this);
     }
     }
+}
+
+///
+enum LegendLocation {
+    ///
+    top,
+
+    ///
+    bottom,
+
+    ///
+    left,
+
+    ///
+    right
 }
 
 /**For drawing extra lines on a Figure, with coordinates specified in plot
@@ -1355,13 +1456,14 @@ auto withoutCaffeine = [8, 6, 3];
 auto withCaffeine = [5, 3, 1];
 auto sleepinessPlot = groupedBar(
     iota(3), [withoutCaffeine, withCaffeine], 0.6,
-    ["Without Caffeine", "With Caffeine"],
-    [getColor(64, 64, 255), getColor(255, 64, 64)]
+        ["W/ Caffeine", "W/o Caffeine"],
+        [getColor(64, 64, 255), getColor(255, 64, 64)]
 );
 auto sleepinessFig = Figure(sleepinessPlot)
     .title("Sleepiness Survey")
     .yLabel("Sleepiness Rating")
     .xLabel("Activity")
+    .legendLocation(LegendLocation.right)
     .xTickLabels(
         iota(3),
         ["In Meeting", "On Phone", "Coding"]
