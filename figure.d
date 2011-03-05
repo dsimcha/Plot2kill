@@ -1158,7 +1158,7 @@ package:
         auto ret = fig.measureText(legendText(), legendFont);
         ret.width += legendSymbolSize + legendSymbolTextSpace;
         ret.height = max(ret.height, legendSymbolSize);
-        return ret;
+        return PlotSize(ret.width, ret.height);
     }
 
 public:

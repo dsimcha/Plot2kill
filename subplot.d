@@ -400,14 +400,14 @@ package class SubplotControl : FigureControl {
         }
 
         with(sp) {
-            if(zoomedFigure is null) {
+            if(_zoomedFigure is null) {
                 auto toZoom = getFigureAt(ea.x, ea.y);
                 if(toZoom !is null) {
-                    zoomedFigure = toZoom;
+                    _zoomedFigure = toZoom;
                     draw();
                 }
             } else {
-                zoomedFigure = null;
+                _zoomedFigure = null;
                 draw();
             }
         }
