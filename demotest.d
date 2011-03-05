@@ -55,6 +55,23 @@ import dstats.all, std.stdio;
 void main(string[] args)
 {
 
+    auto withoutCaffeine = [8, 6, 3];
+    auto withCaffeine = [5, 3, 1];
+    auto sleepinessPlot = groupedBar(
+        iota(3), [withoutCaffeine, withCaffeine], 0.6,
+        ["Without Caffeine", "With Caffeine"],
+        [getColor(64, 64, 255), getColor(255, 64, 64)]
+    );
+    auto sleepinessFig = Figure(sleepinessPlot)
+        .title("Sleepiness Survey")
+        .yLabel("Sleepiness Rating")
+        .xLabel("Activity")
+        .xTickLabels(
+            iota(3),
+            ["In Meeting", "On Phone", "Coding"]
+        );
+    sleepinessFig.showAsMain();
+
     auto boxFig = BoxPlot(0.05).addData(
         randArray!rNorm(100, 0, 1),
         randArray!rNorm(100, 0, 0.5),
@@ -193,7 +210,7 @@ void main(string[] args)
 
     auto sp = Subplot().addFigure
         (hist, binom, barFig, linesWithErrorsFig, scatter,
-         qq, frqHist, uniqueHistFig, heatScatterFig, boxFig)
+         qq, frqHist, uniqueHistFig, heatScatterFig, boxFig, sleepinessFig)
         .title(titleStuff)
         .yLabel(subplotY)
         .xLabel("Boring X-Axis Label");

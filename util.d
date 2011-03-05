@@ -36,6 +36,8 @@ public import std.conv, std.math, std.array, std.range, std.algorithm,
     std.exception, std.traits, std.stdio, std.string, core.memory, std.path,
     std.typecons;
 
+import plot2kill.figure : NoCopy;
+
 version(Windows) {
     // This should be available on all 32-bit versions of Windows.  It was
     // standard since Windows 3.1.
@@ -120,6 +122,10 @@ package string[] doublesToStrings(double[] arr) {
 }
 
 double[] toDoubleArray(R)(R range) {
+    static if(is(R == NoCopy)) {
+        return range.data;
+    }
+
     double[] ret;
     static if(std.range.hasLength!R) {{
         ret.length = range.length;

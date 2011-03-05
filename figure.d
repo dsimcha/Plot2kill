@@ -31,7 +31,7 @@
  */
 module plot2kill.figure;
 
-import plot2kill.util, std.typetuple;
+import plot2kill.util, std.typetuple, std.random;
 
 version(dfl) {
     public import plot2kill.dflwrapper;
@@ -939,6 +939,36 @@ public:
     }
 }
 
+/**
+Most of these classes copy their input data into a double[] by default.  Use
+this to signal that copying is unnecessary.  The range primitives just forward
+to data.
+*/
+struct NoCopy {
+    ///
+    double[] data;
+
+    ///
+    double front() @property { return data.front; }
+
+    ///
+    void popFront() { data.popFront(); }
+
+    ///
+    bool empty() @property { return data.empty; }
+
+    ///
+    typeof(this) save() @property { return this; }
+
+    ///
+    double opIndex(size_t index) { return data[index]; }
+
+    ///
+    typeof(this) opSlice(size_t lower, size_t upper) {
+        return NoCopy(data[lower..upper]);
+    }
+}
+
 
 /**Abstract base class for all types of plot objects.*/
 abstract class Plot {
@@ -1286,6 +1316,146 @@ public:
     }
 }
 
+private template isRoR(T) {
+    enum isRoR = isInputRange!T && isInputRange!(ElementType!T);
+}
+
+/**
+Create an array of bar plots that, when inserted into a Figure, will effectively
+become a grouped bar plot.
+
+Parameters:
+
+centers:
+An input range of the overall center of each group of bars.
+
+data:
+A range of ranges, with one range for each bar color.  This range should have
+one number for each group.
+
+width:
+The combined width of all of the bars for each group.
+
+legendText:
+An array of strings, one for each bar color, or null if no legend is desired.
+
+colors:
+An array of colors, one for each bar.  If none is provided, the default
+colors are used.  These are, in order, blue, red, green, black, orange,
+and purple.  If more colors are needed, they are generated using a random
+number generator with a deterministic seed.
+
+Examples:
+---
+
+// Make a plot with three groups:  One for "In Meeting", one for "On Phone",
+// and one for "Coding".  The plot will also have two bar colors:  One for
+// "Without Caffeine" and one for "With Caffeine".
+auto withoutCaffeine = [8, 6, 3];
+auto withCaffeine = [5, 3, 1];
+auto sleepinessPlot = groupedBar(
+    iota(3), [withoutCaffeine, withCaffeine], 0.6,
+    ["Without Caffeine", "With Caffeine"],
+    [getColor(64, 64, 255), getColor(255, 64, 64)]
+);
+auto sleepinessFig = Figure(sleepinessPlot)
+    .title("Sleepiness Survey")
+    .yLabel("Sleepiness Rating")
+    .xLabel("Activity")
+    .xTickLabels(
+        iota(3),
+        ["In Meeting", "On Phone", "Coding"]
+    );
+---
+*/
+BarPlot[] groupedBar(R1, R2)(
+    R1 centers,
+    R2 data,
+    double width,
+    string[] legendText = null,
+    Color[] colors = null
+)
+if(isInputRange!R1 && isRoR!R2) {
+     return groupedBar(centers, data, (double[][]).init, (double[][]).init,
+        width, legendText, colors);
+}
+
+/**
+Create a grouped bar plot with error bars.  lowerErrors and upperErrors
+must either have the same dimensions as data or be empty.
+*/
+BarPlot[] groupedBar(R1, R2, R3, R4)(
+    R1 centers,
+    R2 data,
+    R3 lowerErrors,
+    R4 upperErrors,
+    double width,
+    string[] legendText = null,
+    Color[] colors = null
+)
+if(isInputRange!R1 && isRoR!R2 && isRoR!R3 && isRoR!R4) {
+    auto centerArr = toDoubleArray(centers);
+    auto dataArr = array(map!toDoubleArray(data));
+    auto lerrArr = array(map!toDoubleArray(lowerErrors));
+    auto uerrArr = array(map!toDoubleArray(upperErrors));
+
+    foreach(elem; TypeTuple!(lerrArr, uerrArr, legendText, colors)) {
+        enforce(elem.empty || elem.length == dataArr.length,
+            "Range length mismatch in groupedBar.");
+    }
+
+    if(!colors.length) {
+        colors = [
+            getColor(0, 0, 255), getColor(255, 0, 0), getColor(0, 255, 0),
+            getColor(0, 0, 0), getColor(255, 128, 0), getColor(255, 0, 255)
+        ];
+
+        // If we need more colors, generate them "randomly" but from a
+        // deterministic seed.
+        auto gen = Random(31415);
+        while(colors.length < dataArr.length) {
+            colors ~= getColor(
+                uniform!"[]"(cast(ubyte) 0, cast(ubyte) 255, gen),
+                uniform!"[]"(cast(ubyte) 0, cast(ubyte) 255, gen),
+                uniform!"[]"(cast(ubyte) 0, cast(ubyte) 255, gen)
+            );
+        }
+    }
+
+    BarPlot[] ret;
+    foreach(int groupIndex, group; dataArr) {
+        BarPlot plot;
+
+        enforce(group.length == centerArr.length,
+            "Each group's length must be equal to centers.length for "
+            ~ "grouped bar plots."
+        );
+        immutable groupWidth = width / dataArr.length;
+
+        // Shift groupCenters over from overall centers.
+        auto groupCenters = centerArr.dup;
+        immutable offset = (groupIndex + 0.5) * groupWidth;
+        groupCenters[] += offset - width / 2;
+
+        if(lowerErrors.length && upperErrors.length) {
+            plot = BarPlot(NoCopy(groupCenters), NoCopy(group), groupWidth,
+                NoCopy(lerrArr[groupIndex]), NoCopy(uerrArr[groupIndex])
+            );
+        } else {
+            plot = BarPlot(NoCopy(groupCenters), NoCopy(group), groupWidth);
+        }
+
+        plot.barColor(colors[groupIndex]);
+
+        if(legendText.length) {
+            plot.legendText(legendText[groupIndex]);
+        }
+
+        ret ~= plot;
+    }
+
+    return ret;
+}
 
 /**Determine behavior for elements outside of a fixed-border histogram's bounds.
  */
