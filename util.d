@@ -33,7 +33,8 @@
 module plot2kill.util;
 
 public import std.conv, std.math, std.array, std.range, std.algorithm,
-    std.exception, std.traits, std.stdio, std.string, core.memory, std.path;
+    std.exception, std.traits, std.stdio, std.string, core.memory, std.path,
+    std.typecons;
 
 version(Windows) {
     // This should be available on all 32-bit versions of Windows.  It was
@@ -158,7 +159,6 @@ package string addNewLines(string input) {
 
     return ret[0..$ - 1];
 }
-
 
 package struct PlotPoint {
     double x;

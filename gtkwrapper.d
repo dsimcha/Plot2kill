@@ -824,6 +824,7 @@ if(is(Base == gtk.Window.Window) || is(Base == gtk.MainWindow.MainWindow)) {
             fontSubmenu.append( new MenuItem(&doFont!"xLabelFont", "_X Label"));
             fontSubmenu.append( new MenuItem(&doFont!"yLabelFont", "_Y Label"));
             fontSubmenu.append( new MenuItem(&doFont!"axesFont", "_Axes"));
+            fontSubmenu.append( new MenuItem(&doFont!"legendFont", "_Legend"));
 
             ret.appendSubmenu("_Fonts", fontSubmenu);
 
@@ -842,10 +843,10 @@ if(is(Base == gtk.Window.Window) || is(Base == gtk.MainWindow.MainWindow)) {
                 }
             }
 
-            static if(which == "axesFont") {
+            static if(which == "axesFont" || which == "legendFont") {
                 auto toChange = cast(Figure) fb;
                 if(!toChange) {
-                    errorMessage("Can't change axes font on a Subplot.");
+                    errorMessage("Can't change axes, legend fonts on a Subplot.");
                     return;
                 }
             } else {

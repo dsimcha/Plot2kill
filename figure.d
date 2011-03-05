@@ -39,6 +39,9 @@ version(dfl) {
     public import plot2kill.gtkwrapper;
 }
 
+private enum legendSymbolSize = 15;  // 30 by 30 pixels.
+private enum legendSymbolTextSpace = 3;
+
 /**A container form for one or more Plot objects.
  *
  * Examples:
@@ -76,6 +79,8 @@ private:
     double rightMargin = 30;
 
     enum tickPixels = 10;
+    enum legendMarginHoriz = 20;
+    enum legendMarginVert = 10;
     double xTickLabelWidth;
     double yTickLabelWidth;
     double tickLabelHeight;
@@ -83,8 +88,8 @@ private:
     Pen axesPen;
     Pen gridPen;
 
-
     Font _axesFont;
+    Font _legendFont;
 
     void fixTickSizes() {
         void fixTickLabelSize(ref double toFix, string[] axisText) {
@@ -108,10 +113,12 @@ private:
 
     void fixMargins() {
         fixTickSizes();
+        immutable legendHeight = measureLegendHeight().height;
         immutable xLabelSize = measureText(xLabel(), xLabelFont());
         immutable bottomTickHeight = (rotatedXTick()) ?
             xTickLabelWidth : tickLabelHeight;
-        bottomMargin = bottomTickHeight + tickPixels + xLabelSize.height + 20;
+        bottomMargin = bottomTickHeight + tickPixels + xLabelSize.height
+            + legendHeight + 20;
 
         topMargin = measureText(title(), titleFont(), plotWidth).height + 20;
 
@@ -122,6 +129,31 @@ private:
             leftMargin = measureText(yLabel(), yLabelFont()).height +
                          tickPixels + yTickLabelWidth + 30;
         }
+    }
+
+    Tuple!(double, "height", int, "nRows") measureLegendHeight() {
+        PlotSize ret = PlotSize(0, 0);
+
+        double maxHeight = 0;
+        int nRows = 1;
+        double rowPos = legendMarginHoriz;
+        foreach(plot; plotData) {
+            auto itemSize = plot.measureLegend(legendFont(), this);
+            maxHeight = max(maxHeight, itemSize.height);
+
+            if(itemSize.width + rowPos >= this.width - legendMarginHoriz
+            && rowPos > legendMarginHoriz) {
+                nRows++;
+                rowPos = itemSize.width + legendMarginHoriz;
+            }
+
+            rowPos += itemSize.width + legendMarginHoriz;
+        }
+
+        return typeof(return)(
+            (maxHeight + legendMarginVert) * nRows,
+            nRows
+        );
     }
 
     Plot[] plotData;
@@ -154,7 +186,9 @@ private:
         }
 
         immutable textSize = measureText(xLabel(), xLabelFont());
-        auto rect = PlotRect(leftMargin, this.height - textSize.height - 10,
+        immutable yTop = this.height - textSize.height - 10
+            - measureLegendHeight().height;
+        auto rect = PlotRect(leftMargin, yTop,
             this.width - leftMargin - rightMargin, textSize.height);
 
         auto format = TextAlignment.Center;
@@ -199,6 +233,75 @@ private:
 
         foreach(i, tickPoint; yAxisLocations) {
             drawYTick(tickPoint, yAxisText[i]);
+        }
+    }
+
+    void drawLegend() {
+        immutable measurements = measureLegendHeight();
+        if(measurements.height == 0) return;  // No legend.
+        immutable rowHeight = measurements.height / measurements.nRows;
+
+        // This needs to be precomputed for centering purposes.
+        double[] rowStarts;
+
+        double curX = legendMarginHoriz;
+        double curY = this.height - measurements.height - 10;
+        size_t rowStartIndex = 0;
+
+        foreach(plot; plotData) {
+            if(!plot.legendText.length) continue;
+            immutable itemSize = plot.measureLegend(legendFont(), this);
+
+            if(itemSize.width + curX >= this.width - legendMarginHoriz
+            && curX > legendMarginHoriz) {
+                // Find centering.
+                auto rowSize = curX - legendMarginHoriz;
+                rowStarts ~= max(0, (this.width - rowSize) / 2);
+                curX = legendMarginHoriz;
+            }
+
+            curX += itemSize.width + legendMarginHoriz;
+        }
+        // Append last row.
+        auto rowSize = curX - legendMarginHoriz;
+        rowStarts ~= max(0, (this.width - rowSize) / 2);
+
+        auto black = getColor(0, 0, 0);
+        curX = rowStarts[rowStartIndex];
+        double nextX;
+
+        foreach(plot; plotData) {
+            if(!plot.legendText.length) continue;
+
+            immutable itemSize = plot.measureLegend(legendFont(), this);
+            if(itemSize.width + curX >= this.width - legendMarginHoriz
+            && curX > legendMarginHoriz) {
+                curY += rowHeight;
+                rowStartIndex++;
+                curX = rowStarts[rowStartIndex];
+                nextX = curX;
+            }
+
+            nextX = curX + itemSize.width + legendMarginHoriz;
+
+            immutable textSize = measureText(plot.legendText(), legendFont());
+            assert(textSize.height <= rowHeight);
+
+            immutable textX = curX + legendSymbolSize + legendSymbolTextSpace;
+            immutable textDiff = (rowHeight - textSize.height);
+            auto textRect = PlotRect(textX, curY + textDiff,
+                textSize.width,
+                textSize.height
+            );
+            drawText(plot.legendText(), legendFont(), black, textRect,
+                TextAlignment.Left);
+
+            auto ySlack = (textRect.height - legendSymbolSize) / 2;
+            auto where = PlotRect(
+                curX, textRect.y + ySlack, legendSymbolSize, legendSymbolSize);
+            plot.drawLegendSymbol(this, where);
+
+            curX = nextX;
         }
     }
 
@@ -368,6 +471,10 @@ private:
 
         if(nullOrInit(axesFont())) {
             _axesFont = getFont(plot2kill.util.defaultFont, 12 + fontSizeAdjust);
+        }
+
+        if(nullOrInit(legendFont())) {
+            _legendFont = getFont(plot2kill.util.defaultFont, 12 + fontSizeAdjust);
         }
     }
 
@@ -594,6 +701,17 @@ public:
     }
 
     ///
+    final Font legendFont()() {
+        return _legendFont;
+    }
+
+    ///
+    final This legendFont(this This)(Font newFont) {
+        _legendFont = newFont;
+        return cast(This) this;
+    }
+
+    ///
     static Figure opCall() {
         return new Figure;
     }
@@ -779,6 +897,7 @@ public:
         drawAxes();
         drawTitle();
         drawXlabel();
+        drawLegend();
     }
 
     version(none) {
@@ -831,6 +950,19 @@ protected:
     // Rightmost limit of the plot.
     double rightLim = -double.infinity;
 
+    abstract void drawLegendSymbol(FigureBase fig, PlotRect where);
+
+    string _legendText;
+
+package:
+    PlotSize measureLegend(Font legendFont, FigureBase fig) {
+        if(!legendText().length) return PlotSize(0, 0);
+        auto ret = fig.measureText(legendText(), legendFont);
+        ret.width += legendSymbolSize + legendSymbolTextSpace;
+        ret.height = max(ret.height, legendSymbolSize);
+        return ret;
+    }
+
 public:
     /* Draw the plot on Figure using the rectangular area described by the
      * integer parameters.
@@ -877,6 +1009,17 @@ public:
     /**The bottommost point on the plot.*/
     double bottomMost()  {
         return lowerLim;
+    }
+
+    ///
+    string legendText()() {
+        return _legendText;
+    }
+
+    ///
+    This legendText(this This)(string newText) {
+        _legendText = newText;
+        return cast(This) this;
     }
 }
 
@@ -998,6 +1141,10 @@ protected:
                 PlotPoint(toPixelsX(rightLim), zeroPoint)
             );
         }
+    }
+
+    override void drawLegendSymbol(FigureBase fig, PlotRect where) {
+        drawFillLegend(_barColor, fig, where);
     }
 
     Color _barColor;
@@ -1213,6 +1360,10 @@ class Histogram : Plot {
             horizPos += binWidth;
             lastPosPixels = horizPixels + thisBinWidth;
         }
+    }
+
+    protected override void drawLegendSymbol(FigureBase fig, PlotRect where) {
+        drawFillLegend(_barColor, fig, where);
     }
 
     private void fixBounds() {
@@ -1489,6 +1640,10 @@ class FrequencyHistogram : Plot {
         }
     }
 
+    override void drawLegendSymbol(FigureBase fig, PlotRect where) {
+        drawFillLegend(_barColor, fig, where);
+    }
+
     /**Controls the color of the bar.  Defaults to blue.*/
     final Color barColor()() {
         return _barColor;
@@ -1690,6 +1845,10 @@ class HeatMap : Plot {
         }
     }
 
+    protected override void drawLegendSymbol(FigureBase fig, PlotRect where) {
+        enforce(0, "Heat maps don't have legends.");
+    }
+
     protected void enforceRectangular() {
         foreach(row; values) {
             enforce(row.length == values[0].length,
@@ -1787,6 +1946,11 @@ class HeatMap : Plot {
     ///
     final uint nCols()  {
         return _nCols;
+    }
+
+    /// Throws an exception.  Heat maps aren't allowed to have legends.
+    override This legendText(this This)(string ignored) {
+        enforce(0, "Heat maps can't have legend text.");
     }
 }
 
@@ -1971,7 +2135,21 @@ class ScatterPlot : Plot {
         lowerLim -= horizFudge;
     }
 
-    override void drawPlot(
+    protected override void drawLegendSymbol(FigureBase fig, PlotRect where) {
+        auto font = getFont(plot2kill.util.defaultFont,
+            10 + Figure.fontSizeAdjust);
+
+        // Center location.
+        string writeThis = [cast(immutable) _pointSymbol];
+        immutable meas = fig.measureText(writeThis, font);
+        where.y += (where.height - meas.height) / 2;
+        where.height = meas.height;
+
+        scope(exit) doneWith(font);
+        fig.drawText(writeThis, font, _pointColor, where, TextAlignment.Center);
+    }
+
+    protected override void drawPlot(
         Figure form,
         double leftMargin,
         double topMargin,
@@ -2119,6 +2297,12 @@ class LineGraph : Plot {
             this.upperLim += yPad;
             this.lowerLim -= yPad;
         }
+    }
+
+    protected override void drawLegendSymbol(FigureBase fig, PlotRect where) {
+        auto pen = fig.getPen(_lineColor, _lineWidth);
+        scope(exit) doneWith(pen);
+        drawLineLegend(pen, fig, where);
     }
 
     protected void drawPlot(
@@ -2973,6 +3157,12 @@ protected:
         }
     }
 
+    override void drawLegendSymbol(FigureBase fig, PlotRect where) {
+        auto pen = fig.getPen(getColor(0, 0, 0), 1);
+        scope(exit) doneWith(pen);
+        drawLineLegend(pen, fig, where);
+    }
+
 public:
 
     /**
@@ -3009,3 +3199,17 @@ public:
 
 }
 
+private:
+
+void drawLineLegend(Pen pen, FigureBase fig, PlotRect where) {
+    auto mid = where.y + where.height / 2;
+    fig.drawLine(pen,
+        PlotPoint(where.x, mid),
+        PlotPoint(where.x + where.width, mid));
+}
+
+void drawFillLegend(Color color, FigureBase fig, PlotRect where) {
+    auto brush = fig.getBrush(color);
+    scope(exit) doneWith(brush);
+    fig.fillRectangle(brush, where.x, where.y, where.width, where.height);
+}

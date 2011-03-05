@@ -75,8 +75,11 @@ void main(string[] args)
     histRand.put(
         Histogram(randArray!rNorm(5_000, 0, 1), 100, -5, 5, OutOfBounds.Ignore)
     );
+    histRand.legendText = "Empirical";
+
     auto histLine = ContinuousFunction(
         parametrize!normalPDF(0, 1), -5, 5);
+    histLine.legendText = "Theoretical";
     histRand.scaleDistributionFunction(histLine);
     histLine.lineColor = getColor(255, 0, 0);
     histLine.lineWidth = 3;
@@ -104,8 +107,10 @@ void main(string[] args)
 
     auto binomExact =
         DiscreteFunction(parametrize!binomialPMF(8, 0.5), 0, 8);
+    binomExact.legendText = "Exact";
     auto binomApprox =
         ContinuousFunction(parametrize!normalPDF(4, sqrt(2.0)), -1, 9, 100);
+    binomApprox.legendText = "Approx.";
     binomApprox.lineWidth = 2;
     auto binom = Figure(binomExact, binomApprox);
     binom.title = "Binomial";
@@ -118,12 +123,12 @@ void main(string[] args)
     auto scatter = ScatterPlot(
         randArray!rNorm(100, 0, 1),
         randArray!rNorm(100, 0, 1)
-    ).pointColor(getColor(255, 0, 255)).toFigure;
+    ).legendText("Point").pointColor(getColor(255, 0, 255)).toFigure;
     scatter.xLim(-2, 2);
     scatter.yLim(-2, 2);
     scatter.verticalGrid = true;
     scatter.horizontalGrid = true;
-   scatter.showAsMain();
+    scatter.showAsMain();
 
     auto bars = BarPlot([1,2,3], [8,7,3], 0.5, [1,2,4], [1,2,4]);
     auto barFig = bars.toFigure;
