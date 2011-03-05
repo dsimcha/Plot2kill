@@ -39,7 +39,7 @@ version(dfl) {
     public import plot2kill.gtkwrapper;
 }
 
-private enum legendSymbolSize = 15;  // 30 by 30 pixels.
+package enum legendSymbolSize = 15;  // 30 by 30 pixels.
 private enum legendSymbolTextSpace = 3;
 
 /**A container form for one or more Plot objects.
@@ -156,7 +156,6 @@ private:
         );
     }
 
-    Plot[] plotData;
     FigureLine[] extraLines;
 
     final double plotWidth()  {
@@ -497,6 +496,9 @@ protected:
         this();
         addPlot!(Figure)(plots);
     }
+
+package:
+    Plot[] plotData;
 
 public:
 
@@ -953,8 +955,6 @@ protected:
     // Rightmost limit of the plot.
     double rightLim = -double.infinity;
 
-    abstract void drawLegendSymbol(FigureBase fig, PlotRect where);
-
     string _legendText;
 
 package:
@@ -967,6 +967,10 @@ package:
     }
 
 public:
+    // This should be package but for some reason package functions can't
+    // be abstract.
+    abstract void drawLegendSymbol(FigureBase fig, PlotRect where);
+
     /* Draw the plot on Figure using the rectangular area described by the
      * integer parameters.
      */

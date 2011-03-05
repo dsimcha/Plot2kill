@@ -614,6 +614,39 @@ public:
     }
 }
 
+/*
+This class allows a legend symbol to be drawn in a small area.  This really
+needs to be refactored to separate the GUI wrapping code from FigureBase,
+but I'm too lazy to do it for now.
+*/
+private class LegendSymbolDrawer : FigureBase {
+    Plot plot;
+
+    this(Plot plot) {
+        this._width = legendSymbolSize;
+        this._height = legendSymbolSize;
+        this.plot = plot;
+    }
+
+    override void drawImpl() {
+        try {
+            auto rect = Rect(0, 0, legendSymbolSize, legendSymbolSize);
+            auto prect = PlotRect(0, 0, legendSymbolSize, legendSymbolSize);
+            auto brush = getBrush(getColor(255, 255, 255));
+            scope(exit) doneWith(brush);
+            fillRectangle(brush, rect);
+            plot.drawLegendSymbol(this, prect);
+        } catch(Exception) {
+            // Legend not implemented for plot type.  This is ok to ignore.
+        }
+    }
+
+    override int defaultWindowWidth() { return legendSymbolSize; }
+    override int defaultWindowHeight() { return legendSymbolSize; }
+    override int minWindowWidth() { return legendSymbolSize; }
+    override int minWindowHeight() { return legendSymbolSize; }
+}
+
 
 /**The default widget for displaying Figure and Subplot objects on screen.
  * This class has no public constructor or static factory method because the
@@ -776,6 +809,43 @@ private class ZoomDialog : Dialog {
     }
 }
 
+/* This is a sentinel value in case a plot throws some kind of unimplemented
+   feature exception when I try to make it draw its legend symbol.
+*/
+private enum legendExceptionText = "???@@@___legendException___@@@???";
+
+private class LegendDialog : Dialog {
+    Entry[] entries;
+
+    this(Figure fig) {
+        super();
+        auto content = this.getContentArea();
+
+        foreach(plot; fig.plotData) {
+            auto symbolDrawer = new LegendSymbolDrawer(plot);
+            auto widget = new FigureWidget(symbolDrawer);
+
+            auto ltext = plot.legendText();
+            if(!ltext.length) ltext = "\0";
+            auto box = new HBox(0, 5);
+            box.add(widget);
+
+            auto entry = new Entry(ltext);
+            entry.setActivatesDefault(1);
+            entries ~= entry;
+            box.add(entry);
+            content.add(box);
+        }
+
+        this.addButtons([StockID.OK, StockID.CANCEL],
+            [GtkResponseType.GTK_RESPONSE_OK,
+             GtkResponseType.GTK_RESPONSE_CANCEL]
+        );
+        this.setDefaultResponse(GtkResponseType.GTK_RESPONSE_OK);
+        this.setResizable(0);
+    }
+}
+
 /**Default plot window.  It's a subclass of either Window or MainWindow
  * depending on the template parameter.
  */
@@ -815,6 +885,9 @@ if(is(Base == gtk.Window.Window) || is(Base == gtk.MainWindow.MainWindow)) {
 
             auto labelItem = new MenuItem(&popupLabelDialog, "_Labels...");
             ret.append(labelItem);
+
+            auto legendItem = new MenuItem(&popupLegendDialog, "Le_gend...");
+            ret.append(legendItem);
 
             auto zoomItem = new MenuItem(&popupZoomDialog, "_Zoom...");
             ret.append(zoomItem);
@@ -878,6 +951,45 @@ if(is(Base == gtk.Window.Window) || is(Base == gtk.MainWindow.MainWindow)) {
             widget.queueDraw();
         }
 
+        void popupLegendDialog(MenuItem menuItem) {
+            auto fb = widget.figure;
+            auto sp = cast(Subplot) fb;
+
+            Figure fig;
+            if(sp) {
+                fig = cast(Figure) sp.zoomedFigure;
+            } else {
+                fig = cast(Figure) fb;
+            }
+
+            if(!fig) {
+                errorMessage("Cannot change legend on a subplot.");
+                return;
+            }
+
+            auto dialog = new LegendDialog(fig);
+
+            void changeLegendText(int responseID, Dialog dummy) {
+                if(responseID != GtkResponseType.GTK_RESPONSE_OK) {
+                    return;
+                }
+
+                foreach(i, plot; fig.plotData) {
+                    auto entryText = dialog.entries[i].getText();
+                    if(entryText != legendExceptionText) {
+                        plot.legendText(entryText);
+                    }
+                }
+
+                queueDraw();
+            }
+
+            dialog.addOnResponse(&changeLegendText);
+            dialog.showAll();
+            dialog.run();
+            dialog.destroy();
+        }
+
         void popupLabelDialog(MenuItem menuItem) {
             auto dialog = new LabelDialog(widget);
             dialog.addOnResponse(&changeLabels);
@@ -928,7 +1040,7 @@ if(is(Base == gtk.Window.Window) || is(Base == gtk.MainWindow.MainWindow)) {
             }
 
             auto ldialog = cast(LabelDialog) dialog;
-            assert(ldialog);
+            enforce(ldialog);
 
             auto fb = widget.figure;
             auto sp = cast(Subplot) fb;
@@ -948,7 +1060,7 @@ if(is(Base == gtk.Window.Window) || is(Base == gtk.MainWindow.MainWindow)) {
 
         void changeZoom(int responseID, Dialog dialog) {
             auto zdialog = cast(ZoomDialog) dialog;
-            assert(zdialog);
+            enforce(zdialog);
 
             auto fb = widget.figure;
             Figure fig;
@@ -964,7 +1076,7 @@ if(is(Base == gtk.Window.Window) || is(Base == gtk.MainWindow.MainWindow)) {
                 }
             } else {
                 fig = cast(Figure) fb;
-                assert(fig);
+                enforce(fig);
             }
 
             if(responseID == 1) {
