@@ -54,7 +54,8 @@ import gdk.Color, gdk.GC, gtk.Widget, gdk.Drawable, gtk.DrawingArea,
     gtkc.cairotypes, cairo.PdfSurface, cairo.SvgSurface,
     cairo.PostScriptSurface, cairo.Surface, cairo.ImageSurface,
     gtk.FileSelection, gtk.MessageDialog, gtk.Menu, gtk.MenuItem,
-    gtk.Entry, gtk.HBox, gtk.Label, gtk.FontSelectionDialog;
+    gtk.Entry, gtk.HBox, gtk.Label, gtk.FontSelectionDialog, gtk.RadioButton,
+    gtk.HSeparator;
 
 // Default initialize GTK.
 package void defaultInit() {
@@ -708,6 +709,7 @@ private class LabelDialog : Dialog {
 
     this(FigureWidget widget) {
         super();
+        setTitle("Labels");
         auto content = this.getContentArea();
 
         auto fb = widget.figure;
@@ -766,6 +768,7 @@ private class ZoomDialog : Dialog {
 
     this(Figure fig) {
         super();
+        setTitle("Zoom");
         auto content = this.getContentArea();
 
         topEntry = new Entry(to!string(fig.topMost));
@@ -816,10 +819,44 @@ private enum legendExceptionText = "???@@@___legendException___@@@???";
 
 private class LegendDialog : Dialog {
     Entry[] entries;
+    RadioButton topRadio, bottomRadio, leftRadio,rightRadio;
 
     this(Figure fig) {
         super();
+        setTitle("Legend");
         auto content = this.getContentArea();
+
+        content.add(new Label("Position"));
+        auto posBox1 = new HBox(1, 5);
+        auto posBox2 = new HBox(1, 5);
+        topRadio = new RadioButton("Top");
+        bottomRadio = new RadioButton(topRadio, "Bottom");
+        leftRadio = new RadioButton(topRadio, "Left");
+        rightRadio = new RadioButton(topRadio, "Right");
+
+        final switch(fig.legendLocation()) {
+            case LegendLocation.left:
+                leftRadio.setActive(1);
+                break;
+            case LegendLocation.right:
+                rightRadio.setActive(1);
+                break;
+            case LegendLocation.top:
+                topRadio.setActive(1);
+                break;
+            case LegendLocation.bottom:
+                bottomRadio.setActive(1);
+                break;
+        }
+
+        posBox1.add(topRadio);
+        posBox1.add(bottomRadio);
+        posBox2.add(leftRadio);
+        posBox2.add(rightRadio);
+
+        content.add(posBox1);
+        content.add(posBox2);
+        content.add(new HSeparator);
 
         foreach(plot; fig.plotData) {
             auto symbolDrawer = new LegendSymbolDrawer(plot);
@@ -969,7 +1006,7 @@ if(is(Base == gtk.Window.Window) || is(Base == gtk.MainWindow.MainWindow)) {
 
             auto dialog = new LegendDialog(fig);
 
-            void changeLegendText(int responseID, Dialog dummy) {
+            void changeLegend(int responseID, Dialog dummy) {
                 if(responseID != GtkResponseType.GTK_RESPONSE_OK) {
                     return;
                 }
@@ -981,10 +1018,22 @@ if(is(Base == gtk.Window.Window) || is(Base == gtk.MainWindow.MainWindow)) {
                     }
                 }
 
+                if(dialog.topRadio.getActive()) {
+                    fig.legendLocation(LegendLocation.top);
+                } else if(dialog.bottomRadio.getActive()) {
+                    fig.legendLocation(LegendLocation.bottom);
+                } else if(dialog.leftRadio.getActive()) {
+                    fig.legendLocation(LegendLocation.left);
+                } else if(dialog.rightRadio.getActive()) {
+                    fig.legendLocation(LegendLocation.right);
+                } else {
+                    assert(0);
+                }
+
                 queueDraw();
             }
 
-            dialog.addOnResponse(&changeLegendText);
+            dialog.addOnResponse(&changeLegend);
             dialog.showAll();
             dialog.run();
             dialog.destroy();
