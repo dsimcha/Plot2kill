@@ -76,6 +76,9 @@ private:
     bool _horizontalGrid;
     bool _verticalGrid;
 
+    bool _rotatedXTick;
+    bool _rotatedYTick;
+
     double topMargin = 10;
     double bottomMargin = 10;
     double leftMargin = 10;
@@ -125,6 +128,9 @@ private:
         immutable xLabelSize = measureText(xLabel(), xLabelFont());
         immutable bottomTickHeight = (rotatedXTick()) ?
             xTickLabelWidth : tickLabelHeight;
+        immutable leftTickWidth = (rotatedYTick()) ?
+            tickLabelHeight : yTickLabelWidth;
+
         bottomMargin = bottomTickHeight + tickPixels + xLabelSize.height
             + (legendLocation() == LegendLocation.bottom) * legendHeight + 20;
 
@@ -132,7 +138,7 @@ private:
             + (legendLocation() == LegendLocation.top) * legendHeight + 20;
 
         leftMargin = measureText(yLabel(), yLabelFont()).height +
-             tickPixels + yTickLabelWidth
+             tickPixels + leftTickWidth
              + (legendLocation() == LegendLocation.left) * legendWidth + 30;
 
         rightMargin = (legendLocation() == LegendLocation.right)
@@ -436,14 +442,25 @@ private:
         auto format = TextAlignment.Right;
 
         immutable textSize = measureText(text, _axesFont, format);
-        auto rect = PlotRect(
-            leftMargin - textSize.width - tickPixels - lineLabelSpace,
-            this.height - wherePixels - textSize.height / 2,
-            textSize.width,
-            textSize.height
-        );
+        if(rotatedYTick()) {
+            auto rect = PlotRect(
+                leftMargin - textSize.height - tickPixels - lineLabelSpace,
+                this.height - wherePixels - textSize.width / 2,
+                textSize.height,
+                textSize.width
+            );
 
-        drawText(text, _axesFont, getColor(0, 0, 0), rect, format);
+            drawRotatedText(text, _axesFont, getColor(0, 0, 0), rect, format);
+        } else {
+            auto rect = PlotRect(
+                leftMargin - textSize.width - tickPixels - lineLabelSpace,
+                this.height - wherePixels - textSize.height / 2,
+                textSize.width,
+                textSize.height
+            );
+
+            drawText(text, _axesFont, getColor(0, 0, 0), rect, format);
+        }
     }
 
     // Used in setupAxes() via delegate.
@@ -853,8 +870,8 @@ public:
         yAxisLocations = toDoubleArray(locations);
 
         if(text.length > 0) {
-            enforce(text.length == xAxisLocations.length,
-                "Length mismatch between Y axis locations and X axis text.");
+            enforce(text.length == yAxisLocations.length,
+                "Length mismatch between Y axis locations and Y axis text.");
             yAxisText = text.dup;
         } else {
             yAxisText = doublesToStrings(yAxisLocations);
@@ -893,6 +910,32 @@ public:
     ///
     This legendLocation(this This)(LegendLocation newLoc) {
         this._legendLoc = newLoc;
+        return cast(This) this;
+    }
+
+    /**
+    Determines whether rotated text is used for the X tick labels.
+    */
+    final bool rotatedXTick()() {
+        return _rotatedXTick;
+    }
+
+    /// Setter
+    final This rotatedXTick(this This)(bool newVal) {
+        _rotatedXTick = newVal;
+        return cast(This) this;
+    }
+
+    /**
+    Determines whether rotated text is used for the Y tick labels.
+    */
+    final bool rotatedYTick()() {
+        return _rotatedYTick;
+    }
+
+    /// Setter
+    final This rotatedYTick(this This)(bool newVal) {
+        _rotatedYTick = newVal;
         return cast(This) this;
     }
 

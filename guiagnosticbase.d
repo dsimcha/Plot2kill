@@ -59,8 +59,6 @@ protected:
     Font _xLabelFont;
     Font _yLabelFont;
 
-    bool _rotatedXTick;
-
 public:
 
     abstract void drawImpl() {}
@@ -140,19 +138,6 @@ public:
     ///
     final This yLabelFont(this This)(Font newLabelFont) {
         _yLabelFont = newLabelFont;
-        return cast(This) this;
-    }
-
-    /**
-    Determines whether rotated text is used for the X tick labels.
-    */
-    final bool rotatedXTick()() {
-        return _rotatedXTick;
-    }
-
-    /// Setter
-    final This rotatedXTick(this This)(bool newVal) {
-        _rotatedXTick = newVal;
         return cast(This) this;
     }
 }
