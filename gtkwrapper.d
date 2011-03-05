@@ -897,7 +897,10 @@ class TickDialog(char xy) : Dialog {
         auto instructions = new Label(
             "Enter labels and locations as comma-separated lists. Commas may\n" ~
             "be escaped using the \\ character.  Labels may be left blank, in\n" ~
-            "which case they will be set to the string representations of locations."
+            "which case they will be set to the string representations of locations.\n\n" ~
+            "The default button causes the default heuristics for tick locations\n" ~
+            "to be used, but still updates the grid lines and rotated label text\n"
+            "settings."
         );
         content.add(instructions);
 
