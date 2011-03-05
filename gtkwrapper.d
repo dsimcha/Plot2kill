@@ -812,11 +812,6 @@ private class ZoomDialog : Dialog {
     }
 }
 
-/* This is a sentinel value in case a plot throws some kind of unimplemented
-   feature exception when I try to make it draw its legend symbol.
-*/
-private enum legendExceptionText = "???@@@___legendException___@@@???";
-
 private class LegendDialog : Dialog {
     Entry[] entries;
     RadioButton topRadio, bottomRadio, leftRadio,rightRadio;
@@ -1175,8 +1170,14 @@ if(is(Base == gtk.Window.Window) || is(Base == gtk.MainWindow.MainWindow)) {
 
                 foreach(i, plot; fig.plotData) {
                     auto entryText = dialog.entries[i].getText();
-                    if(entryText != legendExceptionText) {
+
+                    try {
                         plot.legendText(entryText);
+                    } catch(Exception) {
+                        // Plots that don't implement legends throw on
+                        // trying to set legend text.  Just make sure
+                        // legend text is blank.
+                        assert(plot.legendText().length == 0);
                     }
                 }
 
