@@ -67,6 +67,7 @@ void main(string[] args)
         .yLabel("Sleepiness Rating")
         .xLabel("Activity")
         .legendLocation(LegendLocation.right)
+        .horizontalGrid(true)
         .xTickLabels(
             iota(3),
             ["In Meeting", "On Phone", "Coding"]

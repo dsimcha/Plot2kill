@@ -246,7 +246,9 @@ private:
 
         drawLine(axesPen, origin, topLeft);
         drawLine(axesPen, origin, bottomRight);
+    }
 
+    void drawTicks() {
         foreach(i, tickPoint; xAxisLocations) {
             drawXTick(tickPoint, xAxisText[i]);
         }
@@ -970,6 +972,7 @@ public:
         }
 
         fixMargins();
+        drawTicks();
 
         foreach(plot; plotData) {
             if(!isValidPlot(plot)) {
