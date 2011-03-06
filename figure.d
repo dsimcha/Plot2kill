@@ -1232,9 +1232,21 @@ private:
     double[] _heights;
     double[] _lowerErrors;
     double[] _upperErrors;
+    BarPlot _stackOn;
 
+    // Return the bottom of the bar at a given index.  This is zero unless
+    // we have a stacked plot.
+    double bottom(size_t index) pure nothrow {
+        return (_stackOn is null) ? 0 :
+            _stackOn.bottom(index) + _stackOn._heights[index];
+    }
 
     void fixBounds() {
+        // We should never have both error bars and stacking.  The API doesn't
+        // allow this, but double-check here.
+        enforce(_stackOn is null ||
+            (_lowerErrors.length == 0 && upperErrors.length == 0));
+
         this.leftLim = reduce!min(double.infinity, this.centers) - width / 2;
         this.rightLim = reduce!max(-double.infinity, this.centers) + width / 2;
         lowerLim = double.infinity;
@@ -1244,13 +1256,13 @@ private:
             if(lowerErrors.length > 0) {
                 lowerLim = min(height - lowerErrors[i], lowerLim);
             } else {
-                lowerLim = min(height, lowerLim);
+                lowerLim = min(height + bottom(i), lowerLim);
             }
 
             if(upperErrors.length > 0) {
                 upperLim = max(height + upperErrors[i], upperLim);
             } else {
-                upperLim = max(height, upperLim);
+                upperLim = max(height + bottom(i), upperLim);
             }
         }
 
@@ -1299,7 +1311,6 @@ protected:
         mixin(drawErrorMixin);
 
         immutable multiplier = plotHeight / (this.upperLim - this.lowerLim);
-        immutable zeroPoint = toPixelsY(0);
         auto brush = form.getBrush(_barColor);
         scope(exit) doneWith(brush);
 
@@ -1307,6 +1318,7 @@ protected:
         scope(exit) doneWith(blackPen);
 
         foreach(i, center; centers) {
+            immutable zeroPoint = toPixelsY(bottom(i));
             immutable height = heights[i];
             immutable left = center - width / 2;
             immutable right = center + width / 2;
@@ -1336,6 +1348,7 @@ protected:
         }
 
         if(lowerLim < 0) {
+            immutable zeroPoint = toPixelsY(0);
             auto pen = form.getPen(getColor(0, 0, 0), 2);
             // Draw line across figure at the zero point.
             form.drawClippedLine(pen,
@@ -1385,15 +1398,16 @@ public:
         return ret;
     }
 
-    /**Create a BarPlot with error bars.  lowerErrors and upperErrors
-     * must be input ranges with elements implicitly convertible to double for
-     * error bars to be shown.  Any other value, such as null or 0, will result
-     * in no error bars being shown.  Therefore, to only show, for example,
-     * upper erros, simply pass in null or 0 for the lower errors.
-     *
-     * To draw symmetric error bars, simply pass in the same range for
-     * lowerErrors and upperErrors.  However, note that if you do this,
-     * the range will need to be a forward range, not an input range.
+    /**
+    Create a BarPlot with error bars.  lowerErrors and upperErrors
+     must be input ranges with elements implicitly convertible to double for
+     error bars to be shown.  Any other value, such as null or 0, will result
+     in no error bars being shown.  Therefore, to only show, for example,
+     upper erros, simply pass in null or 0 for the lower errors.
+
+     To draw symmetric error bars, simply pass in the same range for
+     lowerErrors and upperErrors.  However, note that if you do this,
+     the range will need to be a forward range, not an input range.
      */
      static BarPlot opCall(R1, R2, R3, R4)
      (R1 centers, R2 heights, double width, R3 lowerErrors, R4 upperErrors)
@@ -1418,6 +1432,22 @@ public:
         enforce(ret.lowerErrors.length == 0 || ret.lowerErrors.length ==
             ret.centers.length, "Length of lowerErrors must equal number of bars.");
 
+        ret.fixBounds();
+        return ret;
+    }
+
+    /**
+    Create a BarPlot that is to be stacked on top of this one.  For a
+    convenience function for creating such a plot, see stackedBar().
+
+    Warning:  Creating a cycle (two BarPlots mutually on top of each other)
+              will cause infinite loops, stack overflows and otherwise bad
+              things.
+    */
+    BarPlot stack(R)(R heights) {
+        auto ret = new typeof(return)
+            (_centers, toDoubleArray(heights), width);
+        ret._stackOn = this;
         ret.fixBounds();
         return ret;
     }
@@ -1561,6 +1591,60 @@ BarPlot[] groupedBar(R1, R2, R3, R4)(
     Color[] colors = null
 )
 if(isInputRange!R1 && isRoR!R2 && isRoR!R3 && isRoR!R4) {
+    return groupStackImpl(CompoundBar.group, centers, data, lowerErrors,
+        upperErrors, width, legendText, colors);
+}
+
+/**
+Create a stacked bar plot.  The usage mechanics are identical to those of the
+no error bar overload of groupedBar().
+
+Examples:
+---
+// Stack coffee and tea consumption on top of each other.
+Figure(
+    stackedBar(iota(3), [[5, 3, 1], [1, 2, 3]], 0.6,
+        ["Coffee", "Tea"]
+    )
+).legendLocation(LegendLocation.right)
+    .title("Caffeine Consumption")
+    .xLabel("Time of Day")
+    .xTickLabels(iota(3), ["Morning", "Afternoon", "Evening"])
+    .yLabel("Beverages")
+    .showAsMain();
+---
+*/
+BarPlot[] stackedBar(R1, R2)(
+    R1 centers,
+    R2 data,
+    double width,
+    string[] legendText = null,
+    Color[] colors = null
+)
+if(isInputRange!R1 && isRoR!R2) {
+    return groupStackImpl(CompoundBar.stack, centers, data, (double[][]).init,
+        (double[][]).init, width, legendText, colors);
+}
+
+private enum CompoundBar {
+    group,
+    stack
+}
+
+private BarPlot[] groupStackImpl(R1, R2, R3, R4)(
+    CompoundBar whatToDo,
+    R1 centers,
+    R2 data,
+    R3 lowerErrors,
+    R4 upperErrors,
+    double width,
+    string[] legendText = null,
+    Color[] colors = null
+) {
+    if(whatToDo == CompoundBar.stack) {
+        enforce(lowerErrors.length == 0 && upperErrors.length == 0);
+    }
+
     auto centerArr = toDoubleArray(centers);
     auto dataArr = array(map!toDoubleArray(data));
     auto lerrArr = array(map!toDoubleArray(lowerErrors));
@@ -1595,21 +1679,32 @@ if(isInputRange!R1 && isRoR!R2 && isRoR!R3 && isRoR!R4) {
 
         enforce(group.length == centerArr.length,
             "Each group's length must be equal to centers.length for "
-            ~ "grouped bar plots."
+            ~ "grouped and stacked bar plots."
         );
-        immutable groupWidth = width / dataArr.length;
 
-        // Shift groupCenters over from overall centers.
-        auto groupCenters = centerArr.dup;
-        immutable offset = (groupIndex + 0.5) * groupWidth;
-        groupCenters[] += offset - width / 2;
+        if(whatToDo == CompoundBar.group) {
+            immutable groupWidth = width / dataArr.length;
 
-        if(lowerErrors.length && upperErrors.length) {
-            plot = BarPlot(NoCopy(groupCenters), NoCopy(group), groupWidth,
-                NoCopy(lerrArr[groupIndex]), NoCopy(uerrArr[groupIndex])
-            );
+            // Shift groupCenters over from overall centers.
+            auto groupCenters = centerArr.dup;
+            immutable offset = (groupIndex + 0.5) * groupWidth;
+            groupCenters[] += offset - width / 2;
+
+            if(lowerErrors.length && upperErrors.length) {
+                plot = BarPlot(NoCopy(groupCenters), NoCopy(group), groupWidth,
+                    NoCopy(lerrArr[groupIndex]), NoCopy(uerrArr[groupIndex])
+                );
+            } else {
+                plot = BarPlot(NoCopy(groupCenters), NoCopy(group), groupWidth);
+            }
+        } else if(whatToDo == CompoundBar.stack) {
+            if(groupIndex == 0) {
+                plot = BarPlot(NoCopy(centerArr), NoCopy(group), width);
+            } else {
+                plot = ret[$ - 1].stack(NoCopy(group));
+            }
         } else {
-            plot = BarPlot(NoCopy(groupCenters), NoCopy(group), groupWidth);
+            assert(0);
         }
 
         plot.barColor(colors[groupIndex]);

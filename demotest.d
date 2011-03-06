@@ -54,13 +54,23 @@ version(gtk) {
 import dstats.all, std.stdio;
 void main(string[] args)
 {
+    auto stacked = Figure(
+        stackedBar(iota(3), [[5, 3, 1], [1, 2, 3]], 0.6,
+            ["Coffee", "Tea"]
+        )
+    ).legendLocation(LegendLocation.right)
+        .title("Caffeine Consumption")
+        .xLabel("Time of Day")
+        .xTickLabels(iota(3), ["Morning", "Afternoon", "Evening"])
+        .yLabel("Beverages");
+    stacked.showAsMain();
 
     auto withoutCaffeine = [8, 6, 3];
     auto withCaffeine = [5, 3, 1];
     auto sleepinessPlot = groupedBar(
         iota(3), [withoutCaffeine, withCaffeine], 0.6,
         ["W/o Caffeine", "W/ Caffeine"],
-        [getColor(64, 64, 255), getColor(255, 64, 64)]
+        [getColor(96, 96, 255), getColor(255, 96, 96)]
     );
     auto sleepinessFig = Figure(sleepinessPlot)
         .title("Sleepiness Survey")
@@ -214,7 +224,8 @@ void main(string[] args)
 
     auto sp = Subplot().addFigure
         (hist, binom, barFig, linesWithErrorsFig, scatter,
-         qq, frqHist, uniqueHistFig, heatScatterFig, boxFig, sleepinessFig)
+         qq, frqHist, uniqueHistFig, heatScatterFig, boxFig, sleepinessFig,
+         stacked)
         .title(titleStuff)
         .yLabel(subplotY)
         .xLabel("Boring X-Axis Label");
