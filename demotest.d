@@ -91,14 +91,23 @@ void main(string[] args)
         );
     sleepinessFig.showAsMain();
 
-    auto boxFig = BoxPlot(0.05).addData(
+    auto boxFigNorm = BoxPlot(0.05).addData(
         randArray!rNorm(100, 0, 1),
         randArray!rNorm(100, 0, 0.5),
-        randArray!rNorm(100, 1, 2),
-        randArray!rExponential(100, 0.5),
-        randArray!uniform(100, -2.0, 2.0)
-    ).toFigure
+        randArray!rNorm(100, 1, 2)
+    ).legendText("Normal");
+
+    auto boxFigNonNorm = BoxPlot(0.05)
+        .offset(boxFigNorm.nBoxes)
+        .addData(
+            randArray!rExponential(100, 0.5),
+            randArray!uniform(100, -2.0, 2.0) )
+        .color(getColor(255, 0, 0))
+        .legendText("Non-Normal");
+
+    auto boxFig = Figure(boxFigNorm, boxFigNonNorm)
         .rotatedXTick(true)
+        .legendLocation(LegendLocation.right)
         .xTickLabels(iota(5), [
             "Normal(0, 1)", "Normal(0, 0.5)", "Normal(1, 2)",
             "Exponential(0.5)", "Uniform(-2, 2)"]
@@ -200,6 +209,8 @@ void main(string[] args)
 
     auto heatScatter = HeatScatter(100, 100, -6, 6, -5, 5);
     heatScatter.boundsBehavior = OutOfBounds.Ignore;
+    heatScatter.colors = [getColor(0, 128, 0),
+        getColor(255, 255, 0), getColor(255, 0, 0), getColor(255, 255, 255)];
     foreach(i; 0..500_000) {
         auto num1 = rNorm(-2, 1);
         auto num2 = rNorm(1, 1);

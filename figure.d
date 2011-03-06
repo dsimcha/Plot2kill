@@ -3474,7 +3474,9 @@ class QQPlot : ScatterPlot {
 
 /**
 Draw a basic box-and-whisker plot.  The plots are drawn centered at Y
-coordinates [0, 1, ..., N).
+coordinates [0, 1, ..., N) unless the offset property is set to something else
+(which is useful for putting multiple box pots with different color boxes on
+the same figure).
 */
 class BoxPlot : Plot {
 private:
@@ -3485,6 +3487,12 @@ private:
     double[] whiskerTops;
     double[][] outliers;
     double whiskerPercentile;
+    double _offset = 0;
+    Color _color;
+
+    this() {
+        _color = getColor(0, 0, 0);  // Default color.
+    }
 
     void updateBounds() {
         if(medians.length == 0) return;
@@ -3503,6 +3511,9 @@ private:
 
         leftLim = -0.6;
         rightLim = medians.length - 0.4;
+
+        leftLim += _offset;
+        rightLim += _offset;
 
     }
 
@@ -3573,14 +3584,14 @@ protected:
         immutable nBoxes = medians.length;
         immutable boxWidth = 1;
 
-        auto pen = form.getPen(getColor(0, 0, 0), 1);
+        auto pen = form.getPen(_color, 1);
 
         foreach(boxIndex, med; medians) {
-            immutable left = boxWidth * boxIndex + 0.15 - 0.5;
-            immutable center = boxWidth * boxIndex;
-            immutable right = boxWidth * boxIndex + 0.85 - 0.5;
-            immutable wLeft = boxWidth * boxIndex + 0.35 - 0.5;
-            immutable wRight = boxWidth * boxIndex + 0.65 - 0.5;
+            immutable left = boxWidth * boxIndex + 0.15 - 0.5 + _offset;
+            immutable center = boxWidth * boxIndex + _offset;
+            immutable right = boxWidth * boxIndex + 0.85 - 0.5 + _offset;
+            immutable wLeft = boxWidth * boxIndex + 0.35 - 0.5 + _offset;
+            immutable wRight = boxWidth * boxIndex + 0.65 - 0.5 + _offset;
 
             immutable leftPixels = toPixelsX(left);
             immutable centerPixels = toPixelsX(center);
@@ -3672,13 +3683,13 @@ protected:
                     rectHeight
                 );
 
-                form.drawClippedText(writeThis, font, getColor(0, 0, 0), rect);
+                form.drawClippedText(writeThis, font, _color, rect);
             }
         }
     }
 
     override void drawLegendSymbol(FigureBase fig, PlotRect where) {
-        auto pen = fig.getPen(getColor(0, 0, 0), 1);
+        auto pen = fig.getPen(_color, 1);
         scope(exit) doneWith(pen);
         drawLineLegend(pen, fig, where);
     }
@@ -3717,6 +3728,35 @@ public:
         return cast(This) this;
     }
 
+    /// The offset from zero at which the first box is centered.
+    double offset()() {
+        return _offset;
+    }
+
+    /// Setter
+    This offset(this This)(double newOffset) {
+        this._offset = newOffset;
+        updateBounds();
+        return cast(This) this;
+    }
+
+    /// The color that the boxes, whiskers and outliers are drawn in.
+    Color color()() {
+        return _color;
+    }
+
+    /// Setter.
+    This color(this This)(Color newColor) {
+        this._color = newColor;
+        return cast(This) this;
+    }
+
+    /// The number of boxes currently on the plot.
+    int nBoxes() {
+        // If you have more than a few billion boxes, you have bigger
+        // problems than integer overflow.
+        return cast(int) medians.length;
+    }
 }
 
 private:
