@@ -629,6 +629,63 @@ public:
     }
 }
 
+// Used for scatter plots.  Efficiently draws a single character in a lot of
+// places, centered on a point.  ASSUMPTION:  No drawing commands not related
+// to drawing scatter plot points are issued between when initialize()
+// and reset() are called.
+package struct ScatterCharDrawer {
+private:
+    string str;
+    PlotSize halfMeasurements;
+    Figure fig;
+    Font font;
+    float red, green, blue;
+
+public:
+    this(dchar c, Font font, Color color, Figure fig) {
+        str = to!string(c);
+        this.fig = fig;
+        this.font = font;
+
+        red = color.r / cast(float) ubyte.max;
+        green = color.g / cast(float) ubyte.max;
+        blue = color.b / cast(float) ubyte.max;
+
+
+        auto measurements = fig.measureText(str, font);
+        halfMeasurements = PlotSize(measurements.width / 2,
+            measurements.height / 2);
+    }
+
+    void draw(PlotPoint where) {
+        with(fig) {
+            if(!insideAxes(where)) return;
+            context.moveTo(where.x + xOffset - halfMeasurements.width,
+                where.y + yOffset + halfMeasurements.height);
+            context.textPath(str);
+            context.fill();
+        }
+    }
+
+    // Initialize the Cairo context to the settings we need.
+    void initialize() {
+        with(fig) {
+            context.save();
+            context.setFontSize(font.size);
+            context.setFontFace(font.face);
+
+            context.setSourceRgb(red, green, blue);
+
+            context.setLineWidth(0.5);
+        }
+    }
+
+    // Restore the Cairo context to the old settings.
+    void restore() {
+        fig.context.restore();
+    }
+}
+
 /*
 This class allows a legend symbol to be drawn in a small area.  This really
 needs to be refactored to separate the GUI wrapping code from FigureBase,

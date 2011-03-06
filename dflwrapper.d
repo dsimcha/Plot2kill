@@ -15,6 +15,7 @@ import dfl.all, dfl.internal.utf, dfl.internal.winapi;
 import plot2kill.util;
 import plot2kill.png;
 import plot2kill.guiagnosticbase;
+import plot2kill.figure;
 
 /**DFL's implementation of a color object.*/
 alias dfl.drawing.Color Color;
@@ -386,6 +387,47 @@ public:
     void showAsMain() {
         Application.run(new DefaultPlotWindow(this.toControl));
     }
+}
+
+// Used for scatter plots.  Efficiently draws a single character in a lot of
+// places, centered on a point.  ASSUMPTION:  No drawing commands not related
+// to drawing scatter plot points are issued between when initialize()
+// and reset() are called.
+package struct ScatterCharDrawer {
+private:
+    string str;
+    PlotSize measurements;
+    Figure fig;
+    Font font;
+    Color color;
+
+public:
+    this(dchar c, Font font, Color color, Figure fig) {
+        str = to!string(c);
+        this.fig = fig;
+        this.font = font;
+        this.color = color;
+
+        auto measInt = fig.measureText(str, font);
+        measurements = PlotSize(measInt.width, measInt.height);
+    }
+
+    void draw(PlotPoint where) {
+        if(!fig.insideAxes(where)) return;
+        fig.drawText(str, font, color,
+            PlotRect(where.x - measurements.width * 0.5,
+                     where.y - measurements.height * 0.5,
+                     measurements.width,
+                     measurements.height
+            )
+        );
+    }
+
+    // Dummy function, but other GUI libs require something here.
+    void initialize() {}
+
+    // Dummy function, but other GUI libs require something here.
+    void restore() {}
 }
 
 // Fudge factors for the space that window borders take up.

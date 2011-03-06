@@ -766,6 +766,15 @@ public:
         drawLine(pen, PlotPoint(x1, y1), PlotPoint(x2, y2));
     }
 
+    bool insideAxes(PlotPoint point) {
+        if(between(point.x, leftMargin, this.width - rightMargin) &&
+           between(point.y, topMargin, this.height - bottomMargin)) {
+               return true;
+        } else {
+            return false;
+        }
+    }
+
     void drawClippedText(string text, Font font,
         Color pointColor, PlotRect rect) {
 
@@ -777,8 +786,7 @@ public:
         immutable xMid = rect.x + rect.width / 2;
         immutable yMid = rect.y + rect.height / 2;
 
-        if(between(xMid, leftMargin, this.width - rightMargin) &&
-           between(yMid, topMargin, this.height - bottomMargin)) {
+        if(insideAxes(PlotPoint(xMid, yMid))) {
             drawText(text, font, pointColor, rect);
         }
     }
@@ -2688,23 +2696,16 @@ class ScatterPlot : Plot {
             10 + Figure.fontSizeAdjust);
         scope(exit) doneWith(font);
 
-        string writeThis = [cast(immutable) _pointSymbol];
+        auto pointDrawer = ScatterCharDrawer
+            (_pointSymbol, font, _pointColor, form);
 
-        immutable measure = form.measureText(writeThis, font);
-        immutable rectWidth = measure.width;
-        immutable rectHeight = measure.height;
+        pointDrawer.initialize;
+        scope(exit) pointDrawer.restore();
 
         foreach(i; 0..x.length) {
             immutable curX = toPixelsX(x[i]);
             immutable curY = toPixelsY(y[i]);
-            auto rect = PlotRect(
-                curX - rectWidth / 2,
-                curY - rectHeight / 2,
-                rectWidth,
-                rectHeight
-            );
-
-            form.drawClippedText(writeThis, font, _pointColor, rect);
+            pointDrawer.draw(PlotPoint(curX, curY));
         }
     }
 
@@ -3585,6 +3586,9 @@ protected:
         immutable boxWidth = 1;
 
         auto pen = form.getPen(_color, 1);
+        auto font = getFont(plot2kill.util.defaultFont,
+            10 + Figure.fontSizeAdjust);
+        auto outlierDrawer = ScatterCharDrawer('o', font, _color, form);
 
         foreach(boxIndex, med; medians) {
             immutable left = boxWidth * boxIndex + 0.15 - 0.5 + _offset;
@@ -3664,26 +3668,13 @@ protected:
             if(whiskerPercentile == 0) continue;
 
             // Draw outliers.
-            auto font = getFont(plot2kill.util.defaultFont,
-                10 + Figure.fontSizeAdjust);
-            scope(exit) doneWith(font);
-
-            string writeThis = "o";
-
-            immutable measure = form.measureText(writeThis, font);
-            immutable rectWidth = measure.width;
-            immutable rectHeight = measure.height;
+            outlierDrawer.initialize();
+            scope(exit) outlierDrawer.restore();
 
             foreach(outlier; outliers[boxIndex]) {
-                immutable curY = toPixelsY(outlier);
-                auto rect = PlotRect(
-                    centerPixels - rectWidth / 2,
-                    curY - rectHeight / 2,
-                    rectWidth,
-                    rectHeight
+                outlierDrawer.draw(
+                    PlotPoint(centerPixels, toPixelsY(outlier))
                 );
-
-                form.drawClippedText(writeThis, font, _color, rect);
             }
         }
     }
