@@ -355,6 +355,13 @@ public:
     ) {
         alias rect r;  // save typing
         auto measurements = measureText(text, font);
+
+        // The height added by stuff below the baseline for letters like "g"
+        // and "y" throws off aligning text vertically.  Use the height of
+        // "A", which is a tall letter with nothing below baseline, to
+        // figure out where to start writing.
+        immutable standardLetterHeight = measureText("A", font).height;
+
         if(measurements.width > rect.width) {
             alignment = TextAlignment.Left;
         }
@@ -362,20 +369,20 @@ public:
         if(alignment == TextAlignment.Left) {
             r = PlotRect(
                 r.x,
-                r.y + measurements.height,
+                r.y + standardLetterHeight,
                 r.width,
                 r.height
             );
         } else if(alignment == TextAlignment.Center) {
             r = PlotRect(
                 r.x + (r.width - measurements.width) / 2,
-                r.y + measurements.height,
+                r.y + standardLetterHeight,
                 r.width, r.height
             );
         } else if(alignment == TextAlignment.Right) {
             r = PlotRect(
                 r.x + (r.width - measurements.width),
-                r.y + measurements.height,
+                r.y + standardLetterHeight,
                 r.width, r.height
             );
         } else {
@@ -418,6 +425,13 @@ public:
 
         alias rect r;  // save typing
         auto measurements = measureText(text, font);
+
+        // The height added by stuff below the baseline for letters like "g"
+        // and "y" throws off aligning text vertically.  Use the height of
+        // "A", which is a tall letter with nothing below baseline, to
+        // figure out where to start writing.
+        immutable standardLetterHeight = measureText("A", font).height;
+
         immutable slack  = rect.height - measurements.width;
         if(slack < 0) {
             alignment = TextAlignment.Left;
@@ -425,20 +439,20 @@ public:
 
         if(alignment == TextAlignment.Left) {
             r = PlotRect(
-                r.x + r.width,
+                r.x + standardLetterHeight,
                 r.y + r.height,
                 r.width,
                 r.height
             );
         } else if(alignment == TextAlignment.Center) {
             r = PlotRect(
-                r.x + r.width,
+                r.x + standardLetterHeight,
                 r.y + r.height - slack / 2,
                 r.width, r.height
             );
         } else if(alignment == TextAlignment.Right) {
             r = PlotRect(
-                r.x + r.width,
+                r.x + standardLetterHeight,
                 r.y + r.height - slack,
                 r.width, r.height
             );
