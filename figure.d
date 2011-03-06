@@ -2277,26 +2277,45 @@ class HeatMap : Plot {
     private double maxVal;
     private uint _nRows;
     private uint _nCols;
+    Color[] _colors;
+
+    enum string deprecatedMsg = "hotColor() and coldColor() are schedules " ~
+        "for deprecation.  Use colors() instead.";
 
     private this() {
         // Set default colors.
-        _coldColor = getColor(255, 255, 255);
-        _hotColor = getColor(0, 0, 0);
+        _colors = [
+            getColor(255, 255, 255),
+            getColor(0, 0, 0)
+        ];
     }
 
-    private Color getCellColor(double val) {
+    private Color getCellColor(double val)
+    in {
+        assert(_colors.length > 1);
+        assert(val >= minVal);
+        assert(val <= maxVal);
+    } body {
         immutable diff = maxVal - minVal;
+        immutable stride = diff / (_colors.length - 1.0);
         val -= minVal;
-        val /= diff;
-        immutable compl = 1.0 - val;
+        val /= stride;
+
+        immutable index1 = to!size_t(floor(val));
+        immutable index2 = min(_colors.length - 1, to!size_t(ceil(val)));
+        auto hotColor = _colors[index2];
+        auto coldColor = _colors[index1];
+
+        immutable fract = val - floor(val);
+        immutable compl = 1.0 - fract;
 
         // Bug 4445:  roundTo!ubyte(255.0) throws.
         immutable red = cast(ubyte) roundTo!uint(
-            _coldColor.r * compl + _hotColor.r * val);
+            coldColor.r * compl + hotColor.r * fract);
         immutable green = cast(ubyte) roundTo!uint(
-            _coldColor.g * compl + _hotColor.g * val);
+            coldColor.g * compl + hotColor.g * fract);
         immutable blue = cast(ubyte) roundTo!uint(
-            _coldColor.b * compl + _hotColor.b * val);
+            coldColor.b * compl + hotColor.b * fract);
 
         return getColor(red, green, blue);
     }
@@ -2383,25 +2402,42 @@ class HeatMap : Plot {
         return false;
     }
 
-    /** The color to use for small values.*/
     final Color coldColor()() {
-        return _coldColor;
+        pragma(msg, deprecatedMsg);
+        return _colors[0];
     }
 
-    /// Setter
     final This coldColor(this This)(Color newColor) {
-        _coldColor = newColor;
+        pragma(msg, deprecatedMsg);
+        _colors[0] = newColor;
         return cast(This) this;
     }
 
-    /** The color to use for large values.*/
     final Color hotColor()() {
-        return _hotColor;
+        pragma(msg, deprecatedMsg);
+        return _colors[1];
     }
 
-    /// Setter.
     final This hotColor(this This)(Color newColor) {
-        _hotColor = newColor;
+        pragma(msg, deprecatedMsg);
+        _colors[1] = newColor;
+        return cast(This) this;
+    }
+
+    ///
+    final Color[] colors()() {
+        return _colors;
+    }
+
+    /**
+    Set the colors to be used for this HeatMap as an array from coldest
+    (smallest value) to warmest (largest value).  newColors.length must
+    be >= 2.
+    */
+    final This colors(this This)(Color[] newColors) {
+        enforce(newColors.length >= 2,
+            "Need at least 2 colors for a HeatMap.");
+        this._colors = newColors;
         return cast(This) this;
     }
 
