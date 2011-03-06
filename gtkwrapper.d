@@ -1356,107 +1356,114 @@ if(is(Base == gtk.Window.Window) || is(Base == gtk.MainWindow.MainWindow)) {
             return true;
         }
 
-        version(Windows) {
-            // Use crappy deprecated file dialog to avoid DLL hell issues that
-            // occur in certain configurations (for example, mine).
-            // Specifically, if you have Win64 + Symantec Endpoint Protection +
-            // a mounted network drive and you launch from a Cygwin terminal,
-            // bringing up a save dialog will immediately cause an access
-            // violation.  This is apparently caused by SnacNp64.dll, a 64-bit
-            // DLL related to Symantec's network protection stuff, being loaded
-            // into 32-bit address space.
-            //
-            // This code is kinda quick and dirty in hope that it will be
-            // removed soon.  For example, it doesn't do overwrite
-            // confirmation, or filters.  If the extension isn't valid, it
-            // just defaults to a PNG.
+        // Use crappy deprecated file dialog to avoid DLL hell issues that
+        // occur in certain configurations (for example, mine).
+        // Specifically, if you have Win64 + Symantec Endpoint Protection +
+        // a mounted network drive and you launch from a Cygwin terminal,
+        // bringing up a save dialog will immediately cause an access
+        // violation.  This is apparently caused by SnacNp64.dll, a 64-bit
+        // DLL related to Symantec's network protection stuff, being loaded
+        // into 32-bit address space.
+        //
+        // This code is kinda quick and dirty in hope that it will be
+        // removed soon.  For example, it doesn't do overwrite
+        // confirmation, or filters.  If the extension isn't valid, it
+        // just defaults to a PNG.
+        void popupSaveDialogFallback(MenuItem menuItem) {
+            auto fc = new FileSelection("Save plot...");
+            fc.setSelectMultiple(0);
+            fc.addOnResponse(&saveDialogResponseFallback);
 
-            void saveDialogResponse(int response, Dialog d) {
-                auto fc = cast(FileSelection) d;
-                assert(fc);
+            fc.run();
+        }
 
-                if(response != GtkResponseType.GTK_RESPONSE_OK) {
-                    d.destroy();
-                    return;
-                }
+        void saveDialogResponseFallback(int response, Dialog d) {
+            auto fc = cast(FileSelection) d;
+            assert(fc);
 
-                auto names = fc.getSelections();
-                enforce(names.length == 1);
-                auto name = names[0];
-
-                auto ext = tolower(getExt(name));
-
-                string fileType;
-                if(isValidExt(ext)) {
-                    fileType = ext;
-                } else {
-                    fileType = "png";  // Default since we don't have filters.
-                }
-
-                try {
-                    widget.figure.saveToFile
-                        (name, fileType, widget.getWidth, widget.getHeight);
-                } catch(Exception e) {
-                    fileError(e.toString());
-                }
-
+            if(response != GtkResponseType.GTK_RESPONSE_OK) {
                 d.destroy();
+                return;
             }
 
-            void popupSaveDialog(MenuItem menuItem) {
-                auto fc = new FileSelection("Save plot...");
-                fc.setSelectMultiple(0);
-                fc.addOnResponse(&saveDialogResponse);
+            auto names = fc.getSelections();
+            enforce(names.length == 1);
+            auto name = names[0];
 
-                fc.run();
+            auto ext = tolower(getExt(name));
+
+            string fileType;
+            if(isValidExt(ext)) {
+                fileType = ext;
+            } else {
+                fileType = "png";  // Default since we don't have filters.
             }
 
-        } else {
-            void saveDialogResponse(int response, Dialog d) {
-                auto fc = cast(FileChooserDialog) d;
-                assert(fc);
+            try {
+                widget.figure.saveToFile
+                    (name, fileType, widget.getWidth, widget.getHeight);
+            } catch(Exception e) {
+                fileError(e.toString());
+            }
 
-                if(response != GtkResponseType.GTK_RESPONSE_OK) {
-                    d.destroy();
-                    return;
-                }
+            d.destroy();
+        }
 
-                string name = fc.getFilename();
-                auto ext = tolower(getExt(name));
+        void saveDialogResponse(int response, Dialog d) {
+            auto fc = cast(FileChooserDialog) d;
+            assert(fc);
 
-                string fileType;
-                if(isValidExt(ext)) {
-                    fileType = ext;
-                } else {
-                    fileType = fc.getFilter().getName();
-                    name ~= '.';
-                    name ~= fileType;
-                }
-
-                try {
-                    widget.figure.saveToFile
-                        (name, fileType, widget.getWidth, widget.getHeight);
-                } catch(Exception e) {
-                    fileError(e.toString());
-                }
-
+            if(response != GtkResponseType.GTK_RESPONSE_OK) {
                 d.destroy();
+                return;
             }
 
-            void popupSaveDialog(MenuItem menuItem) {
-                auto fc = new FileChooserDialog("Save plot...", this,
-                GtkFileChooserAction.SAVE);
-                fc.setDoOverwriteConfirmation(1);  // Why isn't this the default?
-                fc.addOnResponse(&saveDialogResponse);
+            string name = fc.getFilename();
+            auto ext = tolower(getExt(name));
 
-                foreach(ext; saveTypes) {
-                    auto filter = new FileFilter();
-                    filter.setName(ext[2..$]);
-                    filter.addPattern(ext);
-                    fc.addFilter(filter);
-                }
+            string fileType;
+            if(isValidExt(ext)) {
+                fileType = ext;
+            } else {
+                fileType = fc.getFilter().getName();
+                name ~= '.';
+                name ~= fileType;
+            }
 
-                fc.run();
+            try {
+                widget.figure.saveToFile
+                    (name, fileType, widget.getWidth, widget.getHeight);
+            } catch(Exception e) {
+                fileError(e.toString());
+            }
+
+            d.destroy();
+        }
+
+        void popupSaveDialogImpl(MenuItem menuItem) {
+            auto fc = new FileChooserDialog("Save plot...", this,
+            GtkFileChooserAction.SAVE);
+            fc.setDoOverwriteConfirmation(1);  // Why isn't this the default?
+            fc.addOnResponse(&saveDialogResponse);
+
+            foreach(ext; saveTypes) {
+                auto filter = new FileFilter();
+                filter.setName(ext[2..$]);
+                filter.addPattern(ext);
+                fc.addFilter(filter);
+            }
+
+            fc.run();
+        }
+
+        void popupSaveDialog(MenuItem menuItem) {
+            try {
+                popupSaveDialogImpl(menuItem);
+            } catch(Error e) {
+                // Catch access violation from improper DLL load and pray that
+                // it didn't horribly corrupt any memory.  See comments for
+                // popupSaveDialogFallback().
+                popupSaveDialogFallback(menuItem);
             }
         }
 

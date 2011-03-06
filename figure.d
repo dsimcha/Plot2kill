@@ -2277,7 +2277,7 @@ class HeatMap : Plot {
     private double maxVal;
     private uint _nRows;
     private uint _nCols;
-    Color[] _colors;
+    private Color[] _colors;
 
     enum string deprecatedMsg = "hotColor() and coldColor() are schedules " ~
         "for deprecation.  Use colors() instead.";
