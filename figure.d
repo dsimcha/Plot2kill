@@ -150,7 +150,18 @@ private:
         int nRows = 1;
         double rowPos = legendMarginHoriz;
 
+        bool shouldReturnZero = true;
         foreach(plot; plotData) {
+            if(plot.hasLegend && plot.legendText().length) {
+                shouldReturnZero = false;
+            }
+        }
+
+        if(shouldReturnZero) {
+            return typeof(return)(0, 0, 0);
+        }
+
+        foreach(plot; plotData) if(plot.hasLegend) {
             auto itemSize = plot.measureLegend(legendFont(), this);
             maxHeight = max(maxHeight, itemSize.height);
             maxWidth = max(maxWidth, itemSize.width);
@@ -1004,6 +1015,29 @@ public:
         return cast(This) this;
     }
 
+    /**
+    Remove one or more plots from the figure.  If the plots are not in the
+    figure, they are silently ignored.
+    */
+    This removePlot(this This)(Plot[] plots...) {
+        void removePlotImpl(Plot p) {
+            auto plotIndex = countUntil!"a is b"(plotData, p);
+            if(plotIndex == -1) return;
+            plotData = plotData[0..plotIndex] ~ plotData[plotIndex + 1..$];
+        }
+
+        foreach(p; plots) {
+            removePlotImpl(p);
+        }
+
+        upperLim = reduce!max(-double.infinity, map!"a.topMost"(plotData));
+        lowerLim = reduce!min(double.infinity, map!"a.bottomMost"(plotData));
+        rightLim = reduce!max(-double.infinity, map!"a.rightMost"(plotData));
+        leftLim = reduce!min(double.infinity, map!"a.leftMost"(plotData));
+
+        return cast(This) this;
+    }
+
     /**Draw the plot but don't display it on screen.*/
     override void drawImpl() {
         auto whiteBrush = getBrush(getColor(255, 255, 255));
@@ -1170,6 +1204,13 @@ public:
      * integer parameters.
      */
     abstract void drawPlot(Figure, double, double, double, double);
+
+    /**
+    Returns true if this plot type supports legends, otherwise false.
+    */
+    bool hasLegend() {
+        return true;
+    }
 
     /**Convenience method that instantiates a Figure object with this plot.
      * Useful for creating single-plot figures w/o a lot of boilerplate.
@@ -2337,6 +2378,10 @@ class HeatMap : Plot {
 
     private Color _coldColor;
     private Color _hotColor;
+
+    override bool hasLegend() {
+        return false;
+    }
 
     /** The color to use for small values.*/
     final Color coldColor()() {

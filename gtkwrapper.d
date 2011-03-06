@@ -867,7 +867,7 @@ private class LegendDialog : Dialog {
         content.add(posBox2);
         content.add(new HSeparator);
 
-        foreach(plot; fig.plotData) {
+        foreach(plot; fig.plotData) if(plot.hasLegend()) {
             auto symbolDrawer = new LegendSymbolDrawer(plot);
             auto widget = new FigureWidget(symbolDrawer);
 
@@ -1182,17 +1182,10 @@ if(is(Base == gtk.Window.Window) || is(Base == gtk.MainWindow.MainWindow)) {
                     return;
                 }
 
-                foreach(i, plot; fig.plotData) {
+                foreach(i, plot; fig.plotData) if(plot.hasLegend()) {
                     auto entryText = dialog.entries[i].getText();
-
-                    try {
-                        plot.legendText(entryText);
-                    } catch(Exception) {
-                        // Plots that don't implement legends throw on
-                        // trying to set legend text.  Just make sure
-                        // legend text is blank.
-                        assert(plot.legendText().length == 0);
-                    }
+                    if(entryText == "\0") entryText = "";
+                    plot.legendText(entryText);
                 }
 
                 if(dialog.topRadio.getActive()) {

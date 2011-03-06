@@ -63,6 +63,13 @@ void main(string[] args)
         .xLabel("Time of Day")
         .xTickLabels(iota(3), ["Morning", "Afternoon", "Evening"])
         .yLabel("Beverages");
+
+    // Test removing a figure.
+    auto fooHist = Histogram(randArray!rNorm(100, 0, 1), 10);
+    stacked.addPlot(fooHist);
+ //   stacked.showAsMain();
+
+    stacked.removePlot(fooHist);
     stacked.showAsMain();
 
     auto withoutCaffeine = [8, 6, 3];
