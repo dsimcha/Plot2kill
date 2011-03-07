@@ -54,6 +54,7 @@ version(gtk) {
 import dstats.all, std.stdio;
 void main(string[] args)
 {
+    LineGraph([8,6,7,5,3,0,9]).pointSymbol('O').toFigure.showAsMain();
     auto stacked = Figure(
         stackedBar(iota(3), [[5, 3, 1], [1, 2, 3]], 0.6,
             ["Coffee", "Tea"]
@@ -170,7 +171,7 @@ void main(string[] args)
     auto scatter = ScatterPlot(
         randArray!rNorm(100, 0, 1),
         randArray!rNorm(100, 0, 1)
-    ).legendText("Point").pointColor(getColor(255, 0, 255)).toFigure;
+    ).legendText("Point").pointSize(10).pointColor(getColor(255, 0, 255)).toFigure;
     scatter.xLim(-2, 2);
     scatter.yLim(-2, 2);
     scatter.verticalGrid = true;

@@ -73,11 +73,6 @@ private:
     bool _rotatedXTick;
     bool _rotatedYTick;
 
-    double topMargin = 10;
-    double bottomMargin = 10;
-    double leftMargin = 10;
-    double rightMargin = 30;
-
     enum tickPixels = 10;
     enum legendMarginHoriz = 20;
     enum legendMarginVert = 10;
@@ -581,6 +576,8 @@ protected:
     }
 
 package:
+    // These goodies need to be known by various GUI-related code, but end
+    // users have no business fiddling with them.
     Plot[] plotData;
 
     double[] xAxisLocations;
@@ -588,6 +585,11 @@ package:
 
     double[] yAxisLocations;
     string[] yAxisText;
+
+    double topMargin = 10;
+    double bottomMargin = 10;
+    double leftMargin = 10;
+    double rightMargin = 30;
 
 public:
 
@@ -2647,34 +2649,13 @@ class HeatScatter : HeatMap {
     }
 }
 
-
 /**Class for drawing a scatter plot.*/
 class ScatterPlot : Plot {
     private double[] x;
     private double[] y;
 
-    protected void addFudgeFactors() {
-        // Add fudge factors to bounds to make points not appear off the chart.
-        immutable horizFudge = (upperLim - lowerLim) * 0.03;
-        immutable verticalFudge = (rightLim - leftLim) * 0.03;
-        leftLim -= verticalFudge;
-        rightLim += verticalFudge;
-        upperLim += horizFudge;
-        lowerLim -= horizFudge;
-    }
-
     protected override void drawLegendSymbol(FigureBase fig, PlotRect where) {
-        auto font = getFont(plot2kill.util.defaultFont,
-            10 + Figure.fontSizeAdjust);
-
-        // Center location.
-        string writeThis = [cast(immutable) _pointSymbol];
-        immutable meas = fig.measureText(writeThis, font);
-        where.y += (where.height - meas.height) / 2;
-        where.height = meas.height;
-
-        scope(exit) doneWith(font);
-        fig.drawText(writeThis, font, _pointColor, where, TextAlignment.Center);
+        drawTextLegend(_pointSymbol, _pointColor, fig, where);
     }
 
     protected override void drawPlot(
@@ -2693,7 +2674,7 @@ class ScatterPlot : Plot {
         mixin(toPixels);
 
         auto font = getFont(plot2kill.util.defaultFont,
-            10 + Figure.fontSizeAdjust);
+            _pointSize + Figure.fontSizeAdjust);
         scope(exit) doneWith(font);
 
         auto pointDrawer = ScatterCharDrawer
@@ -2711,7 +2692,7 @@ class ScatterPlot : Plot {
 
     private Color _pointColor;
     private char _pointSymbol = 'x';
-
+    private int _pointSize = 10;
 
     /**The color of each point on the plot.*/
     final Color pointColor()() {
@@ -2737,6 +2718,18 @@ class ScatterPlot : Plot {
         return cast(This) this;
     }
 
+    /// The size of a point.  (Default 10).
+    final int pointSize()() {
+        return _pointSize;
+    }
+
+    /// Setter
+    final This pointSize(this This)(int newSize) {
+        this._pointSize = newSize;
+        return cast(This) this;
+    }
+
+
     this() {
         _pointColor = getColor(0, 0, 0);
     }
@@ -2755,7 +2748,8 @@ class ScatterPlot : Plot {
         auto ret = new ScatterPlot;
         constructXYGraph(x, y, ret);
 
-        ret.addFudgeFactors();
+        fixXYGraphBounds(ret);
+        addFudgeFactors(ret);
         return ret;
     }
 
@@ -2774,8 +2768,7 @@ class ScatterPlot : Plot {
         }
 
         fixXYGraphBounds(ret);
-        ret.addFudgeFactors();
-
+        addFudgeFactors(ret);
         return ret;
     }
 }
@@ -2787,8 +2780,13 @@ class LineGraph : Plot {
     private double[] lowerErrors;
     private double[] upperErrors;
 
+
     private enum defaultErrorWidth = 0.05;
     private double _errorWidth = defaultErrorWidth;
+
+    private char _pointSymbol = ' ';
+    private Color _pointColor;
+    private int _pointSize = 12;
 
     protected void fixBounds() {
         this.leftLim = reduce!min(double.infinity, this.x);
@@ -2818,12 +2816,20 @@ class LineGraph : Plot {
             this.upperLim += yPad;
             this.lowerLim -= yPad;
         }
+
+        if(_pointSymbol != ' ') {
+ 	        addFudgeFactors(this);
+        }
     }
 
     protected override void drawLegendSymbol(FigureBase fig, PlotRect where) {
         auto pen = fig.getPen(_lineColor, _lineWidth);
         scope(exit) doneWith(pen);
         drawLineLegend(pen, fig, where);
+
+        if(_pointSymbol != ' ') {
+            drawTextLegend(_pointSymbol, _pointColor, fig, where);
+        }
     }
 
     protected void drawPlot(
@@ -2879,6 +2885,24 @@ class LineGraph : Plot {
         foreach(i; 0..x.length) {
             doErrors(i);
         }
+
+        if(_pointSymbol == ' ') return;
+
+        auto font = getFont(plot2kill.util.defaultFont,
+            _pointSize + Figure.fontSizeAdjust);
+        scope(exit) doneWith(font);
+
+        auto pointDrawer = ScatterCharDrawer
+            (_pointSymbol, font, _pointColor, form);
+
+        pointDrawer.initialize;
+        scope(exit) pointDrawer.restore();
+
+        foreach(i; 0..x.length) {
+            immutable curX = toPixelsX(x[i]);
+            immutable curY = toPixelsY(y[i]);
+            pointDrawer.draw(PlotPoint(curX, curY));
+        }
     }
 
     private Color _lineColor;
@@ -2926,8 +2950,48 @@ class LineGraph : Plot {
         return cast(This) this;
     }
 
+    /**
+     The symbol that should be used to denote a data point.  Setting this
+     to ' ' (a space) turns off point symbols and plots the line only.
+     By default the point symbol is a space, so no point symbol is plotted..
+     */
+    final char pointSymbol()() {
+        return _pointSymbol;
+    }
+
+    /// Setter
+    final This pointSymbol(this This)(char newSymbol) {
+        _pointSymbol = newSymbol;
+        fixBounds();
+        return cast(This) this;
+    }
+
+    /**The color of each point on the plot.*/
+    final Color pointColor()() {
+        return _pointColor;
+    }
+
+    /// Setter.
+    final This pointColor(this This)(Color newColor) {
+        _pointColor = newColor;
+        return cast(This) this;
+    }
+
+    /// The size of a point.  (Default 12).
+    final int pointSize()() {
+        return _pointSize;
+    }
+
+    /// Setter
+    final This pointSize(this This)(int newSize) {
+        this._pointSize = newSize;
+        fixBounds();
+        return cast(This) this;
+    }
+
     private this() {
         _lineColor = getColor(0, 0, 0);
+        _pointColor = getColor(0, 0, 0);
     }
 
     /**Factory method for creating a LineGraph.  x and y must both be
@@ -3458,7 +3522,7 @@ class QQPlot : ScatterPlot {
         }
 
         fixXYGraphBounds(ret);
-        ret.addFudgeFactors();
+        addFudgeFactors(ret);
         return ret;
     }
 
@@ -3752,6 +3816,18 @@ public:
 
 private:
 
+void addFudgeFactors(P)(P plot) {
+    with(plot) {
+        // Add fudge factors to bounds to make points not appear off the chart.
+        immutable horizFudge = (upperLim - lowerLim) * 0.03;
+        immutable verticalFudge = (rightLim - leftLim) * 0.03;
+        leftLim -= verticalFudge;
+        rightLim += verticalFudge;
+        upperLim += horizFudge;
+        lowerLim -= horizFudge;
+    }
+}
+
 void drawLineLegend(Pen pen, FigureBase fig, PlotRect where) {
     auto mid = where.y + where.height / 2;
     fig.drawLine(pen,
@@ -3763,4 +3839,20 @@ void drawFillLegend(Color color, FigureBase fig, PlotRect where) {
     auto brush = fig.getBrush(color);
     scope(exit) doneWith(brush);
     fig.fillRectangle(brush, where.x, where.y, where.width, where.height);
+}
+
+void drawTextLegend(char symbol, Color color, FigureBase fig, PlotRect where) {
+    // Draw this small even if the actual symbol is huge so it fits in the
+    // allotted space.
+    auto font = getFont(plot2kill.util.defaultFont,
+        10 + Figure.fontSizeAdjust);
+
+    // Center location.
+    string writeThis = [cast(immutable) symbol];
+    immutable meas = fig.measureText(writeThis, font);
+    where.y += (where.height - meas.height) / 2;
+    where.height = meas.height;
+
+    scope(exit) doneWith(font);
+    fig.drawText(writeThis, font, color, where, TextAlignment.Center);
 }

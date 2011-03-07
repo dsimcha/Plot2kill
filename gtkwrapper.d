@@ -671,11 +671,21 @@ public:
     void initialize() {
         with(fig) {
             context.save();
+
+            // Set up a clip region.
+            context.moveTo(leftMargin + xOffset, topMargin + yOffset);
+            context.lineTo(leftMargin + xOffset,
+                fig.height - bottomMargin + yOffset);
+            context.lineTo(fig.width - rightMargin + xOffset,
+                fig.height - bottomMargin + yOffset);
+            context.lineTo(fig.width - rightMargin + xOffset,
+                topMargin + yOffset);
+            context.lineTo(leftMargin + xOffset, topMargin + yOffset);
+            context.clip();
+
             context.setFontSize(font.size);
             context.setFontFace(font.face);
-
             context.setSourceRgb(red, green, blue);
-
             context.setLineWidth(0.5);
         }
     }
