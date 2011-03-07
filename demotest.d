@@ -54,7 +54,7 @@ version(gtk) {
 import dstats.all, std.stdio;
 void main(string[] args)
 {
-    LineGraph([8,6,7,5,3,0,9]).pointSymbol('#')
+    LineGraph([8,6,7,5,3,0,9]).pointSymbol('O')
         .pointColor(getColor(255, 0, 0))
         .toFigure.showAsMain();
     auto stacked = Figure(

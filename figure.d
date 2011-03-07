@@ -356,19 +356,20 @@ private:
         immutable textSize = measureText(plot.legendText(), legendFont());
         assert(textSize.height <= rowHeight);
 
-        immutable smallLetterHeight = measureText("e", legendFont()).height;
+        immutable stdLetterHeight = measureText("A", legendFont()).height;
         immutable textX = curX + legendSymbolSize + legendSymbolTextSpace;
-        immutable textDiff = (rowHeight - textSize.height);
-        auto textRect = PlotRect(textX, curY + textDiff,
+        auto textRect = PlotRect(
+            textX,
+            curY + rowHeight / 2 - stdLetterHeight / 2,
             textSize.width,
             textSize.height
         );
         drawText(plot.legendText(), legendFont(), getColor(0, 0, 0), textRect,
             TextAlignment.Left);
 
-        auto ySlack = (smallLetterHeight - legendSymbolSize) / 2;
+        auto ySlack = (stdLetterHeight - legendSymbolSize) / 2;
         auto where = PlotRect(
-            curX, curY + rowHeight - ySlack - legendSymbolSize,
+            curX, curY + rowHeight / 2 - legendSymbolSize / 2,
             legendSymbolSize, legendSymbolSize
         );
         plot.drawLegendSymbol(this, where);
@@ -3850,7 +3851,9 @@ void drawTextLegend(char symbol, Color color, FigureBase fig, PlotRect where) {
     // Center location.
     string writeThis = [cast(immutable) symbol];
     immutable meas = fig.measureText(writeThis, font);
-    where.y += (where.height - meas.height) / 2;
+    immutable stdMeas = fig.measureText("A", font);
+
+    where.y += (where.height - meas.height) / 2 - (stdMeas.height - meas.height);
     where.height = meas.height;
 
     scope(exit) doneWith(font);
