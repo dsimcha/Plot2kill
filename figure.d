@@ -2786,7 +2786,7 @@ class LineGraph : Plot {
 
     private char _pointSymbol = ' ';
     private Color _pointColor;
-    private int _pointSize = 12;
+    private int _pointSize = 20;
 
     protected void fixBounds() {
         this.leftLim = reduce!min(double.infinity, this.x);
@@ -2977,7 +2977,7 @@ class LineGraph : Plot {
         return cast(This) this;
     }
 
-    /// The size of a point.  (Default 12).
+    /// The size of a point.  (Default 20).
     final int pointSize()() {
         return _pointSize;
     }

@@ -54,7 +54,9 @@ version(gtk) {
 import dstats.all, std.stdio;
 void main(string[] args)
 {
-    LineGraph([8,6,7,5,3,0,9]).pointSymbol('O').toFigure.showAsMain();
+    LineGraph([8,6,7,5,3,0,9]).pointSymbol('#')
+        .pointColor(getColor(255, 0, 0))
+        .toFigure.showAsMain();
     auto stacked = Figure(
         stackedBar(iota(3), [[5, 3, 1], [1, 2, 3]], 0.6,
             ["Coffee", "Tea"]
