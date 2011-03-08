@@ -369,9 +369,7 @@ package class SubplotControl : FigureControl {
         return ret;
     }
 
-    FigureBase getFigureAt(double x, double y) {
-        auto sp = subplot();
-
+    FigureBase getFigureAt(double x, double y, Subplot sp) {
         with(sp) {
             if(x < leftMargin || y < topMargin) {
                 return null;
@@ -401,11 +399,19 @@ package class SubplotControl : FigureControl {
 
         with(sp) {
             if(_zoomedFigure is null) {
-                auto toZoom = getFigureAt(ea.x, ea.y);
+                auto toZoom = getFigureAt(ea.x, ea.y, subplot());
                 if(toZoom !is null) {
                     _zoomedFigure = toZoom;
                     draw();
                 }
+            } else if(cast(Subplot) _zoomedFigure) {
+                // Support multilevel zoom.
+                auto toZoom = getFigureAt(ea.x, ea.y,
+                    cast(Subplot) _zoomedFigure);
+
+                // If toZoom is null, that's fine.  Just zoom out.
+                _zoomedFigure = toZoom;
+                draw();
             } else {
                 _zoomedFigure = null;
                 draw();
@@ -468,9 +474,7 @@ package class SubplotWidget : FigureWidget {
 //        return true;
 //    }
 
-    FigureBase getFigureAt(double x, double y) {
-        auto sp = subplot();
-
+    FigureBase getFigureAt(double x, double y, Subplot sp) {
         with(sp) {
             if(x < leftMargin || y < topMargin) {
                 return null;
@@ -501,11 +505,19 @@ package class SubplotWidget : FigureWidget {
             }
 
             if(_zoomedFigure is null) {
-                auto toZoom = getFigureAt(press.x, press.y);
+                auto toZoom = getFigureAt(press.x, press.y, sp);
                 if(toZoom !is null) {
                     _zoomedFigure = toZoom;
                     draw();
                 }
+            } else if(cast(Subplot) _zoomedFigure) {
+                // Support multilevel zoom.
+                auto toZoom = getFigureAt(press.x, press.y,
+                    cast(Subplot) _zoomedFigure);
+
+                // If toZoom is null, that's fine.  Just zoom out.
+                _zoomedFigure = toZoom;
+                draw();
             } else {
                 _zoomedFigure = null;
                 draw();
