@@ -1080,9 +1080,9 @@ if(is(Base == gtk.Window.Window) || is(Base == gtk.MainWindow.MainWindow)) {
         FigureWidget widget;
         Menu rightClickMenu;
 
-        immutable string[8] saveTypes =
+        static immutable string[9] saveTypes =
             ["*.png", "*.bmp", "*.tiff", "*.jpg", "*.jpeg", "*.eps",
-             "*.pdf", "*.svg"];
+             "*.pdf", "*.svg", "*.svgz"];
 
         // Based on using print statements to figure it out.  If anyone can
         // find the right documentation and wants to convert this to a proper
