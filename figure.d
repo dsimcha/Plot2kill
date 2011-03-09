@@ -503,8 +503,9 @@ private:
             tickWidth /= 2;
         }
 
-        double startPoint = ceil(lower / tickWidth) * tickWidth;
-        do {
+        void updateAxes() {
+            double startPoint = ceil(lower / tickWidth) * tickWidth;
+
             // The tickWidth * 0.01 is a fudge factor to make the last tick
             // get drawn in the presence of rounding error.
             axisLocations = array(
@@ -513,17 +514,26 @@ private:
 
             axisText = doublesToStrings(axisLocations);
             fixMargins();
+        }
+
+        do {
+            updateAxes();
 
             // Prevent labels from running together on small plots.
             if((axisSize - marginSize()) / axisLocations.length < labelSize * 4
                && diff / tickWidth > 2) {
                 tickWidth *= 2;
-                startPoint = ceil(lower / tickWidth) * tickWidth;
                 continue;
             } else {
                 break;
             }
         } while(true);
+
+        // Force at least two ticks come hell or high water.
+        while(axisLocations.length < 2) {
+            tickWidth /= 2;
+            updateAxes();
+        }
     }
 
     void setLim(
