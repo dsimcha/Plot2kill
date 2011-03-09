@@ -34,7 +34,9 @@ module plot2kill.util;
 
 public import std.conv, std.math, std.array, std.range, std.algorithm,
     std.exception, std.traits, std.stdio, std.string, core.memory, std.path,
-    std.typecons, std.functional;
+    std.typecons, std.functional, std.system;
+
+private import etc.c.zlib;
 
 import plot2kill.figure : NoCopy;
 
@@ -329,4 +331,28 @@ string[] splitEscape(string input) {
 unittest {
     assert(splitEscape(r"Testing\, Separation, Using \\ backslashes") ==
         [r"Testing, Separation", r"Using \ backslashes"]);
+}
+
+// This contains the necessary machinations for writing gzip files.  It's
+// kinda quick and dirty b/c it was only intended for writing svgz files.
+package struct Gzip {
+private:
+    gzFile gz;
+
+public:
+    this(string filename) {
+        gz = gzopen((filename ~ '\0').dup.ptr, "wb9\0".dup.ptr);
+    }
+
+    void finish() {
+        int err = gzclose(gz);
+        enforce(err == 0, "gzip write unsuccessful.  (Error code "
+            ~ to!string(err));
+    }
+
+    void addData(void[] buf) {
+        auto bytesWritten = gzwrite(gz, buf.ptr, buf.length);
+        enforce(bytesWritten == buf.length,
+            "gzip write unsuccessful.");
+    }
 }

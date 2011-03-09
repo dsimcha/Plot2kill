@@ -47,6 +47,8 @@ import plot2kill.guiagnosticbase;
 import plot2kill.subplot;
 import plot2kill.figure;
 
+static import std.file;
+
 import gdk.Color, gdk.GC, gtk.Widget, gdk.Drawable, gtk.DrawingArea,
     gtk.MainWindow, gtk.Main, gdk.Window, gtk.Container, gtk.Window,
     gdk.Pixbuf, gdk.Pixmap, gtkc.all, gtk.FileChooserDialog, gtk.Dialog,
@@ -245,7 +247,32 @@ private:
             enforce(result == cairo_status_t.SUCCESS, text(
                 "Unsuccessfully wrote png.  Error:  ", result));
         }
+    }
 
+    void saveImplSvgz(string filename, double width, double height) {
+        // An svgz file is just an SVG that's been compressed with gzip.
+
+        static extern(C) cairo_status_t
+        writeFunc(void* gzVoid, ubyte* dataPtr, uint len) {
+            uchar[] data = dataPtr[0..len];
+
+            auto gz = cast(Gzip*) gzVoid;
+            gz.addData(data);
+            return cairo_status_t.SUCCESS;
+        }
+
+        auto gz = Gzip(filename);
+        scope(exit) gz.finish();
+
+        auto surf = SvgSurface.createForStream
+            (&writeFunc, cast(void*) &gz, width, height);
+
+        scope(exit) doneWith(surf);
+        auto context = Context.create(surf);
+        scope(exit) doneWith(context);
+
+        this.drawTo(context, PlotRect(0,0, width, height));
+        surf.flush();
     }
 
 protected:
@@ -585,6 +612,8 @@ public:
 
         if(type == "eps" || type == "pdf" || type == "svg" || type == "png") {
             return saveImplSurface(filename, type, width, height);
+        } else if(type == "svgz") {
+            return saveImplSvgz(filename, width, height);
         } else {
             enforce(type == "tiff" || type == "bmp" || type == "jpeg",
                 "Invalid format:  " ~ type);
