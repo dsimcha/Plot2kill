@@ -993,7 +993,7 @@ private class LegendDialog : Dialog {
 }
 
 class TickDialog(char xy) : Dialog {
-    Entry locEntry, labelEntry;
+    Entry locEntry, labelEntry, gridEntry;
     CheckButton rotateButton, gridLineButton;
     enum upperXY = cast(char) (xy + ('X' - 'x'));
     enum grid = (xy == 'x') ? "vertical" : "horizontal";
@@ -1060,6 +1060,16 @@ class TickDialog(char xy) : Dialog {
         auto checkHbox = new HBox(0, 5);
         checkHbox.add(rotateButton);
         checkHbox.add(gridLineButton);
+
+        auto intensLabel = new Label("Gridline Intensity (0-255)");
+        intensLabel.setJustify(GtkJustification.JUSTIFY_RIGHT);
+        checkHbox.add(intensLabel);
+
+        gridEntry = new Entry();
+        gridEntry.setMaxLength(3);
+        gridEntry.setWidthChars(3);
+        gridEntry.setText(to!string(fig.gridIntensity()));
+        checkHbox.add(gridEntry);
         content.add(checkHbox);
 
         this.addButtons([StockID.OK, StockID.CANCEL],
@@ -1210,10 +1220,20 @@ if(is(Base == gtk.Window.Window) || is(Base == gtk.MainWindow.MainWindow)) {
 
                 auto rotation = cast(bool) dialog.rotateButton.getActive();
                 auto grid = cast(bool) dialog.gridLineButton.getActive();
+
+                ubyte gridIntens;
+                try {
+                    gridIntens = to!ubyte(dialog.gridEntry.getText());
+                } catch(ConvException) {
+                    errorMessage("Grid intensity must be a numeric, 0-255.");
+                    return;
+                }
+
                 enum upperXY = dialog.upperXY;
                 enum gridStr = dialog.grid;
                 mixin("fig.rotated" ~ upperXY ~ "Tick(rotation);");
                 mixin("fig." ~ gridStr ~ "Grid(grid);");
+                fig.gridIntensity(gridIntens);
 
                 if(responseID == 1) {  // Set to default.
                     mixin("fig.default" ~ upperXY ~ "Tick();");

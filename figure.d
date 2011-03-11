@@ -81,6 +81,7 @@ private:
     double tickLabelHeight;
 
     Pen axesPen;
+    ubyte _gridIntensity = 128;
     Pen gridPen;
 
     Font _axesFont;
@@ -577,6 +578,7 @@ private:
         return plot.leftMost <= plot.rightMost &&
             plot.bottomMost <= plot.topMost;
     }
+
 protected:
 
     this() {}
@@ -952,6 +954,17 @@ public:
         return cast(This) this;
     }
 
+    /// Grid intensity from zero (pure white) to 255 (pure black).
+    ubyte gridIntensity()() {
+        return _gridIntensity;
+    }
+
+    /// Setter.
+    This gridIntensity(this This)(ubyte newIntensity) {
+        _gridIntensity = newIntensity;
+        return cast(This) this;
+    }
+
     ///
     LegendLocation legendLocation()() {
         return _legendLoc;
@@ -1072,7 +1085,10 @@ public:
         axesPen = getPen(getColor(0, 0, 0), 2);
         scope(exit) doneWith(axesPen);
 
-        gridPen = getPen(getColor(0, 0, 0), 1);
+        auto notGridIntens = cast(ubyte) (ubyte.max - gridIntensity());
+        gridPen = getPen(
+            getColor(notGridIntens, notGridIntens, notGridIntens), 1
+        );
         scope(exit) doneWith(gridPen);
 
         nullFontsToDefaults();

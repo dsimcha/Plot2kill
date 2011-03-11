@@ -87,6 +87,7 @@ void main(string[] args)
         .yLabel("Sleepiness Rating")
         .xLabel("Activity")
         .legendLocation(LegendLocation.right)
+        .gridIntensity(cast(ubyte) 100)
         .horizontalGrid(true)
         .xTickLabels(
             iota(3),
