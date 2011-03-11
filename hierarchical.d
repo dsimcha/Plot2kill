@@ -4,7 +4,8 @@ can be used for drawing heatmaps and, eventually, dendrograms.
 
 Bugs:  Not very efficient, though it probably doesn't need to be because
        the use case is visualizations, and all the information has to fit
-       reasonably on the visualization.
+       reasonably on the visualization.  Therefore, N will always be fairly
+       small.
 
 Copyright (C) 2011 David Simcha
 
