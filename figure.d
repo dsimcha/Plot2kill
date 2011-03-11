@@ -2523,8 +2523,11 @@ class HeatMap : Plot {
 /**
 Convenience function that creates a hierarchically clustered heat map and,
 if provided, rearranges your row and column labels according to the clustering.
+
+The distance and linkage aliases control the distance and linkage functions
+for hierarchical clustering.
 */
-HeatMap hierarchicalHeatMap(R)
+HeatMap hierarchicalHeatMap(alias distance = euclidean, alias linkage = mean, R)
 (R data, string[] rowLabels = null, string[] colLabels = null)
 if(isInputRange!R && isInputRange!(ElementType!R) &&
 is(ElementType!(ElementType!(R)) : double)) {
@@ -2543,14 +2546,14 @@ is(ElementType!(ElementType!(R)) : double)) {
         }
     }
 
-    auto rowClusters = hierarchicalCluster(rowMatrix);
+    auto rowClusters = hierarchicalCluster!(distance, linkage)(rowMatrix);
     auto rowPermApp = appender!(size_t[])();
     foreach(c; *rowClusters) {
         rowPermApp.put(c.index);
     }
     rowClusters = null;
 
-    auto colClusters = hierarchicalCluster(colMatrix);
+    auto colClusters = hierarchicalCluster!(distance, linkage)(colMatrix);
     colMatrix[] = null;
     colMatrix = null;
 
