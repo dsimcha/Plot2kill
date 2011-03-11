@@ -2522,44 +2522,45 @@ class HeatMap : Plot {
 
 /**
 Convenience function that creates a hierarchically clustered heat map and,
-if provided, rearranges your row and column labels according to the clustering.
+if provided, rearranges your row and column names according to the clustering.
 
 The distance and linkage aliases control the distance and linkage functions
-for hierarchical clustering.
+for hierarchical clustering.  See plot2kill.hierarchical.hierarchicalCluster()
+for details.
 */
 HeatMap hierarchicalHeatMap(alias distance = euclidean, alias linkage = mean, R)
-(R data, string[] rowLabels = null, string[] colLabels = null)
+(R data, string[] rowNames = null, string[] colNames = null)
 if(isInputRange!R && isInputRange!(ElementType!R) &&
 is(ElementType!(ElementType!(R)) : double)) {
 
-    auto rowMatrix = array(map!(toDoubleArray)(data));
-    enforce(rowMatrix.length > 0 && rowMatrix[0].length > 0,
+    auto matrix = array(map!(toDoubleArray)(data));
+    enforce(matrix.length > 0 && matrix[0].length > 0,
         "Cannot produce a heat map w/ zero elements.");
 
-    auto colMatrix = new double[][](rowMatrix[0].length, rowMatrix.length);
-    foreach(i; 0..rowMatrix.length) {
-        enforce(rowMatrix[i].length == rowMatrix[0].length,
+    foreach(i; 0..matrix.length) {
+        enforce(matrix[i].length == matrix[0].length,
             "data must be rectangular for hierarchicalHeatMap.");
-
-        foreach(j; 0..rowMatrix[0].length) {
-            colMatrix[j][i] = rowMatrix[i][j];
-        }
     }
 
-    auto rowClusters = hierarchicalCluster!(distance, linkage)(rowMatrix);
+    auto rowClusters = hierarchicalCluster!(distance, linkage)
+        (matrix, ClusterBy.rows, rowNames);
+
     auto rowPermApp = appender!(size_t[])();
+    size_t nameIndex = 0;
     foreach(c; *rowClusters) {
         rowPermApp.put(c.index);
+        if(rowNames.length) rowNames[nameIndex++] = c.name;
     }
     rowClusters = null;
 
-    auto colClusters = hierarchicalCluster!(distance, linkage)(colMatrix);
-    colMatrix[] = null;
-    colMatrix = null;
+    auto colClusters = hierarchicalCluster!(distance, linkage)
+        (matrix, ClusterBy.columns, colNames);
 
     auto colPermApp = appender!(size_t[])();
+    nameIndex = 0;
     foreach(c; *colClusters) {
         colPermApp.put(c.index);
+        if(colNames.length) colNames[nameIndex++] = c.name;
     }
     colClusters = null;
 
@@ -2574,31 +2575,19 @@ is(ElementType!(ElementType!(R)) : double)) {
         return ret;
     }
 
-    assert(rowPermApp.data.length == rowMatrix.length, text(
-        rowPermApp.data.length, ' ', rowMatrix.length));
-    rowMatrix = byPerm(rowMatrix, rowPermApp.data);
+    assert(rowPermApp.data.length == matrix.length, text(
+        rowPermApp.data.length, ' ', matrix.length));
+    matrix = byPerm(matrix, rowPermApp.data);
 
     // This fixes some weirdness caused by different conventions between HeatMap
     // and most other plots.
-    reverse(rowMatrix);
+    reverse(matrix);
 
-    foreach(ref row; rowMatrix) {
+    foreach(ref row; matrix) {
         row = byPerm(row, colPermApp.data);
     }
 
-    if(rowLabels.length) {
-        enforce(rowLabels.length == rowPermApp.data.length,
-            "rowLabels.length must be matrix.length if provided.");
-        copy(byPerm(rowLabels, rowPermApp.data), rowLabels);
-    }
-
-    if(colLabels.length) {
-        enforce(colLabels.length == colPermApp.data.length,
-            "colLabels.length must be matrix.length if provided.");
-        copy(byPerm(colLabels, colPermApp.data), colLabels);
-    }
-
-    return HeatMap.noCopy(rowMatrix);
+    return HeatMap.noCopy(matrix);
 }
 
 /**Creates a heat map representing the density of a 2-d probability

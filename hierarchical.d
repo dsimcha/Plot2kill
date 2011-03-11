@@ -37,7 +37,7 @@ DEALINGS IN THE SOFTWARE.
  */
 module plot2kill.hierarchical;
 
-import plot2kill.util;
+import plot2kill.util, std.typetuple;
 
 /// Used for mean linkage.
 double mean(double[] stuff) {
@@ -45,15 +45,13 @@ double mean(double[] stuff) {
 }
 
 /// Euclidean distance.
-double euclidean(double[] a, double[] b) {
-    enforce(a.length == b.length, "a and b must be same length for euclidean.");
+double euclidean(R1, R2)(R1 a, R2 b)
+if(allSatisfy!(isInputRange, R1, R2) && is(ElementType!R1 : double) &&
+is(ElementType!R2 : double)) {
 
-    double ret = 0;
-    foreach(i; 0..a.length) {
-        ret += (a[i] - b[i]) ^^ 2;
-    }
-
-    return sqrt(ret);
+    return sqrt(
+        reduce!"a + (b[0] - b[1]) ^^ 2"(0.0, zip(a, b))
+    );
 }
 
 /**
@@ -82,6 +80,9 @@ struct Cluster {
     if this is not a leaf node.
     */
     size_t index = size_t.max;
+
+    /// The name of the sample, populated only for leaf nodes.
+    string name;
 
     /// True if this cluster doesn't have children.
     bool isLeaf() @property pure nothrow const {
@@ -146,28 +147,82 @@ struct Cluster {
 }
 
 /**
+Cluster by rows or columns?
+*/
+enum ClusterBy {
+    ///
+    rows,
+
+    ///
+    columns
+}
+
+/**
 Perform hierarchical clustering.  matrix must be rectangular and represents
-the data matrix.  distance is the distance metric, linkage is the linkage
-function.
+the data matrix.  distance is the distance metric, which must be a function
+that accepts two equal-length input ranges of doubles.  linkage is the linkage
+function, which must accept a double[] that represents all possible pairwise
+distances between two clusters and return a summary of these distances.
+
+clusterBy indicates whether the rows or the columns of the matrix should
+be clustered.
+
+names is an optional string array of names, one per sample.  If provided,
+this information will be placed in the Cluster objects, allowing samples
+to be tracked by name.
 */
 Cluster* hierarchicalCluster(alias distance = euclidean, alias linkage = mean)(
-    double[][] matrix,
+    double[][] matrix, ClusterBy clusterBy, string[] names = null
 ) {
     enforce(matrix.length > 0, "Cannot cluster zero elements.");
-
-    Cluster*[] clusters = new Cluster*[matrix.length];
-    foreach(i; 0..matrix.length) {
-        clusters[i] = new Cluster(null, null, double.nan, i);
+    foreach(i; 1..matrix.length) {
+        enforce(matrix[i].length == matrix[0].length,
+            "matrix must be rectangular for hierarchicalCluster.");
     }
 
-    // Make distance matrix.
-    double[][] distances = new double[][matrix.length];
-    foreach(i; 0..clusters.length) {
-        distances[i] = new double[i];
+    Cluster*[] clusters;
 
-        foreach(j; 0..i) {
-            distances[i][j] = distance(matrix[i], matrix[j]);
+    // Make distance matrix.
+    double[][] distances;
+    if(clusterBy == ClusterBy.rows) {
+        clusters = new Cluster*[matrix.length];
+        distances = new double[][matrix.length];
+
+        enforce(names.length == 0 || names.length == matrix.length,
+            "names.length must be equal to matrix.length for " ~
+            "hierarchical clustering by row.");
+
+        foreach(i; 0..clusters.length) {
+            distances[i] = new double[i];
+
+            foreach(j; 0..i) {
+                distances[i][j] = distance(matrix[i], matrix[j]);
+            }
         }
+    } else {
+        assert(clusterBy == ClusterBy.columns);
+        clusters = new Cluster*[matrix[0].length];
+        distances = new double[][matrix[0].length];
+
+        enforce(names.length == 0 || names.length == matrix[0].length,
+            "names.length must be equal to matrix[0].length for " ~
+            "hierarchical clustering by row.");
+
+        foreach(i; 0..clusters.length) {
+            distances[i] = new double[i];
+
+            foreach(j; 0..i) {
+                distances[i][j] = distance(
+                    transversal(matrix, i),
+                    transversal(matrix, j)
+                );
+            }
+        }
+    }
+
+    foreach(i; 0..clusters.length) {
+        clusters[i] = new Cluster(null, null, double.nan, i);
+        if(names.length) clusters[i].name = names[i];
     }
 
     while(clusters.length > 1) {
