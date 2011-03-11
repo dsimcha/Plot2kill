@@ -305,6 +305,10 @@ public:
         context.setSourceRgb(c.r / ubyteMax, c.g / ubyteMax, c.b / ubyteMax);
         context.setLineWidth(pen.lineWidth);
 
+        // If we're joining lines, it's always on a LineGraph or something,
+        // where miter creates weird artifacts.  Bevel looks best.
+        context.setLineJoin(cairo_line_join_t.BEVEL);
+
         if(lastLine[1] == PlotPoint(startX, startY) && lastLinePen == pen) {
             // Redraw the last line.
             context.moveTo(lastLine[0].x + xOffset, lastLine[0].y + yOffset);
