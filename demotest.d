@@ -54,6 +54,27 @@ version(gtk) {
 import dstats.all, std.stdio;
 void main(string[] args)
 {
+    double[][] matrix = new double[][10];
+    foreach(ref row; matrix) row = randArray!rNorm(10, 0, 1);
+//    foreach(i, r; matrix[1..$]) {
+//        r[] = 0.2 * r[] + 0.8 * matrix[i][];
+//    }
+    auto rowLabels = to!(string[])(array(iota(10)));
+    auto colLabels = to!(string[])(array(iota(10)));
+
+    auto arr = [-2.5, -2, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, 2];
+    copy(arr, matrix[1]);//transversal(matrix, 1));
+    copy(arr, matrix[7]);//transversal(matrix, 7));
+    arr[] += randArray!rNorm(10, 0, 0.5)[];
+    copy(arr, matrix[3]);//transversal(matrix, 3));
+
+    hierarchicalHeatMap(matrix, rowLabels, colLabels)
+        .colors([getColor(255, 0, 0), getColor(0, 0, 0), getColor(0, 255, 0)])
+        .toFigure
+        .xTickLabels(iota(1, 11), colLabels)
+        .yTickLabels(iota(1, 11), rowLabels)
+        .showAsMain();
+
     LineGraph([8,6,7,5,3,0,9]).pointSymbol('O')
         .pointColor(getColor(255, 0, 0))
         .toFigure.showAsMain();

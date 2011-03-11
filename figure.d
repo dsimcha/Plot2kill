@@ -31,7 +31,7 @@
  */
 module plot2kill.figure;
 
-import plot2kill.util, std.typetuple, std.random;
+import plot2kill.util, plot2kill.hierarchical, std.typetuple, std.random;
 
 version(dfl) {
     public import plot2kill.dflwrapper;
@@ -2495,6 +2495,15 @@ class HeatMap : Plot {
         return ret;
     }
 
+    /**Create a heat map w/o copying data.*/
+    static HeatMap noCopy(double[][] mat) {
+        auto ret = new typeof(this);
+        ret.values = mat;
+        ret.heatMapDefaultBounds();
+        ret.setMinMax();
+        return ret;
+    }
+
     ///
     final uint nRows()  {
         return _nRows;
@@ -2509,6 +2518,84 @@ class HeatMap : Plot {
     override This legendText(this This)(string ignored) {
         enforce(0, "Heat maps can't have legend text.");
     }
+}
+
+/**
+Convenience function that creates a hierarchically clustered heat map and,
+if provided, rearranges your row and column labels according to the clustering.
+*/
+HeatMap hierarchicalHeatMap(R)
+(R data, string[] rowLabels = null, string[] colLabels = null)
+if(isInputRange!R && isInputRange!(ElementType!R) &&
+is(ElementType!(ElementType!(R)) : double)) {
+
+    auto rowMatrix = array(map!(toDoubleArray)(data));
+    enforce(rowMatrix.length > 0 && rowMatrix[0].length > 0,
+        "Cannot produce a heat map w/ zero elements.");
+
+    auto colMatrix = new double[][](rowMatrix[0].length, rowMatrix.length);
+    foreach(i; 0..rowMatrix.length) {
+        enforce(rowMatrix[i].length == rowMatrix[0].length,
+            "data must be rectangular for hierarchicalHeatMap.");
+
+        foreach(j; 0..rowMatrix[0].length) {
+            colMatrix[j][i] = rowMatrix[i][j];
+        }
+    }
+
+    auto rowClusters = hierarchicalCluster(rowMatrix);
+    auto rowPermApp = appender!(size_t[])();
+    foreach(c; *rowClusters) {
+        rowPermApp.put(c.index);
+    }
+    rowClusters = null;
+
+    auto colClusters = hierarchicalCluster(colMatrix);
+    colMatrix[] = null;
+    colMatrix = null;
+
+    auto colPermApp = appender!(size_t[])();
+    foreach(c; *colClusters) {
+        colPermApp.put(c.index);
+    }
+    colClusters = null;
+
+    static T[] byPerm(T)(T[] input, const size_t[] perm) {
+        assert(perm.length == input.length);
+
+        auto ret = new T[input.length];
+        foreach(i, p; perm) {
+            ret[i] = input[p];
+        }
+
+        return ret;
+    }
+
+    assert(rowPermApp.data.length == rowMatrix.length, text(
+        rowPermApp.data.length, ' ', rowMatrix.length));
+    rowMatrix = byPerm(rowMatrix, rowPermApp.data);
+
+    // This fixes some weirdness caused by different conventions between HeatMap
+    // and most other plots.
+    reverse(rowMatrix);
+
+    foreach(ref row; rowMatrix) {
+        row = byPerm(row, colPermApp.data);
+    }
+
+    if(rowLabels.length) {
+        enforce(rowLabels.length == rowPermApp.data.length,
+            "rowLabels.length must be matrix.length if provided.");
+        copy(byPerm(rowLabels, rowPermApp.data), rowLabels);
+    }
+
+    if(colLabels.length) {
+        enforce(colLabels.length == colPermApp.data.length,
+            "colLabels.length must be matrix.length if provided.");
+        copy(byPerm(colLabels, colPermApp.data), colLabels);
+    }
+
+    return HeatMap.noCopy(rowMatrix);
 }
 
 /**Creates a heat map representing the density of a 2-d probability
