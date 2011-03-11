@@ -44,16 +44,6 @@ double mean(double[] stuff) {
     return reduce!"a + b"(0.0, stuff) / stuff.length;
 }
 
-/// Used for max linkage.
-double arrayMax(double[] stuff) {
-    return reduce!(std.algorithm.max)(-double.infinity, stuff);
-}
-
-/// Used for min linkage.
-double arrayMin(double[] stuff) {
-    return reduce!(std.algorithm.min)(double.infinity, stuff);
-}
-
 /// Euclidean distance.
 double euclidean(double[] a, double[] b) {
     enforce(a.length == b.length, "a and b must be same length for euclidean.");
@@ -71,12 +61,11 @@ A tree for defining hierarchical clusters.
 */
 struct Cluster {
     private this
-    (Cluster* left, Cluster* right, double dist, size_t index, double[][] mat) {
+    (Cluster* left, Cluster* right, double dist, size_t index) {
         this.left = left;
         this.right = right;
         this.distance = dist;
         this.index = index;
-        this.matrix = mat;
     }
 
     ///
@@ -94,23 +83,32 @@ struct Cluster {
     */
     size_t index = size_t.max;
 
-    /// The data that is being clustered.
-    double[][] matrix;
-
     /// True if this cluster doesn't have children.
     bool isLeaf() @property pure nothrow const {
         if(left is null) assert(right is null);
         return left is null;
     }
 
+    // Tracks distances to other clusters that have already been computed.
+    // Is always null once hierarchicalCluster returns, because it's no
+    // longer needed.
+    private double[Cluster*] distCache;
+
     private double calculateDistance
-    (alias distance, alias linkage)(ref Cluster rhs) {
+    (alias linkage)(ref Cluster rhs, double[][] distances) {
+        if(&rhs in distCache) {
+            return distCache[&rhs];
+        }
+
         auto app = appender!(double[])();
 
         void addDists(ref Cluster a, ref Cluster b) {
             if(a.isLeaf) {
                 if(b.isLeaf) {
-                    app.put(distance(matrix[a.index], matrix[b.index]));
+                    auto index1 = max(a.index, b.index);
+                    auto index2 = min(a.index, b.index);
+                    assert(index1 != index2);
+                    app.put(distances[index1][index2]);
                 } else {
                     addDists(a, *(b.left));
                     addDists(a, *(b.right));
@@ -122,7 +120,9 @@ struct Cluster {
         }
 
         addDists(this, rhs);
-        return linkage(app.data);
+        auto ret = linkage(app.data);
+        distCache[&rhs] = ret;
+        return ret;
     }
 
     /// Iterate over the leaf nodes.
@@ -157,7 +157,17 @@ Cluster* hierarchicalCluster(alias distance = euclidean, alias linkage = mean)(
 
     Cluster*[] clusters = new Cluster*[matrix.length];
     foreach(i; 0..matrix.length) {
-        clusters[i] = new Cluster(null, null, double.nan, i, matrix);
+        clusters[i] = new Cluster(null, null, double.nan, i);
+    }
+
+    // Make distance matrix.
+    double[][] distances = new double[][matrix.length];
+    foreach(i; 0..clusters.length) {
+        distances[i] = new double[i];
+
+        foreach(j; 0..i) {
+            distances[i][j] = distance(matrix[i], matrix[j]);
+        }
     }
 
     while(clusters.length > 1) {
@@ -167,7 +177,7 @@ Cluster* hierarchicalCluster(alias distance = euclidean, alias linkage = mean)(
 
         foreach(i; 0..clusters.length) foreach(j; i + 1..clusters.length) {
             immutable dist =
-                clusters[i].calculateDistance!(distance, linkage)(*clusters[j]);
+                clusters[i].calculateDistance!(linkage)(*clusters[j], distances);
 
             if(dist < minDist) {
                 minPair1 = i;
@@ -176,11 +186,27 @@ Cluster* hierarchicalCluster(alias distance = euclidean, alias linkage = mean)(
             }
         }
 
+        // Clean up excess distCache stuff, let it get GC'd.
+        clusters[minPair1].distCache = null;
+        clusters[minPair2].distCache = null;
+
+        foreach(cluster; clusters) {
+            if(clusters[minPair1] in cluster.distCache) {
+                cluster.distCache.remove(clusters[minPair1]);
+            }
+
+            if(clusters[minPair2] in cluster.distCache) {
+                cluster.distCache.remove(clusters[minPair2]);
+            }
+        }
+
         clusters[minPair1] = new Cluster(
-            clusters[minPair1], clusters[minPair2], minDist, size_t.max, matrix);
+            clusters[minPair1], clusters[minPair2], minDist, size_t.max);
 
         clusters = clusters.remove(minPair2);
     }
 
+    distances[] = null;  // Make sure it gets gc'd.
+    clusters[0].distCache = null;
     return clusters[0];
 }
