@@ -3683,28 +3683,10 @@ protected:
             immutable wBotPixels = toPixelsY(whiskerBottoms[boxIndex]);
 
             // Draw box.
-            form.drawClippedLine(
-                pen,
-                PlotPoint(leftPixels, boxBotPixels),
-                PlotPoint(leftPixels, boxTopPixels)
-            );
-
-            form.drawClippedLine(
-                pen,
-                PlotPoint(rightPixels, boxBotPixels),
-                PlotPoint(rightPixels, boxTopPixels)
-            );
-
-            form.drawClippedLine(
-                pen,
-                PlotPoint(leftPixels, boxBotPixels),
-                PlotPoint(rightPixels, boxBotPixels)
-            );
-
-            form.drawClippedLine(
-                pen,
-                PlotPoint(leftPixels, boxTopPixels),
-                PlotPoint(rightPixels, boxTopPixels)
+            form.drawClippedRectangle(pen,
+                leftPixels, boxTopPixels,
+                rightPixels - leftPixels,
+                boxBotPixels - boxTopPixels
             );
 
             // Draw median lines.
