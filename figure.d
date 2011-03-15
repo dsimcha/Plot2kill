@@ -87,6 +87,9 @@ private:
     Font _axesFont;
     Font _legendFont;
 
+    Color[] _xTickColors;
+    Color[] _yTickColors;
+
     LegendLocation _legendLoc = LegendLocation.bottom;
 
     void fixTickSizes() {
@@ -256,12 +259,16 @@ private:
     }
 
     void drawTicks() {
+        auto black = getColor(0, 0, 0);
+
         foreach(i, tickPoint; xAxisLocations) {
-            drawXTick(tickPoint, xAxisText[i]);
+            auto color = (_xTickColors.length) ? _xTickColors[i] : black;
+            drawXTick(tickPoint, xAxisText[i], color);
         }
 
         foreach(i, tickPoint; yAxisLocations) {
-            drawYTick(tickPoint, yAxisText[i]);
+            auto color = (_yTickColors.length) ? _yTickColors[i] : black;
+            drawYTick(tickPoint, yAxisText[i], color);
         }
     }
 
@@ -379,7 +386,7 @@ private:
     // Controls the space between a tick line and the tick label.
     enum lineLabelSpace = 2;
 
-    void drawXTick(double where, string text) {
+    void drawXTick(double where, string text, Color color) {
         immutable wherePixels = toPixelsX(where);
         drawLine(
             axesPen,
@@ -410,7 +417,7 @@ private:
                 textSize.width
             );
 
-            drawRotatedText(text, _axesFont, getColor(0, 0, 0), rect, format);
+            drawRotatedText(text, _axesFont, color, rect, format);
         } else {
             auto rect = PlotRect(wherePixels - textSize.width / 2,
                 tickTextStart,
@@ -418,11 +425,11 @@ private:
                 textSize.height
             );
 
-            drawText(text, _axesFont, getColor(0, 0, 0), rect, format);
+            drawText(text, _axesFont, color, rect, format);
         }
     }
 
-    void drawYTick(double where, string text) {
+    void drawYTick(double where, string text, Color color) {
         immutable wherePixels = this.height - toPixelsY(where);
         drawLine(
             axesPen,
@@ -452,7 +459,7 @@ private:
                 textSize.width
             );
 
-            drawRotatedText(text, _axesFont, getColor(0, 0, 0), rect, format);
+            drawRotatedText(text, _axesFont, color, rect, format);
         } else {
             auto rect = PlotRect(
                 leftMargin - textSize.width - tickPixels - lineLabelSpace,
@@ -461,7 +468,7 @@ private:
                 textSize.height
             );
 
-            drawText(text, _axesFont, getColor(0, 0, 0), rect, format);
+            drawText(text, _axesFont, color, rect, format);
         }
     }
 
@@ -875,12 +882,16 @@ public:
     /**Set the X axis labels.  If text is null (default) the axis text is
      * just the text of the axis locations.  R should be any range with
      * length identical to text (unless text is null) and elements implicitly
-     * convertible to double.
+     * convertible to double.  If colors is empty, all labels will be made
+     * black.  Otherwise it must be the same length as locations.
      */
-    This xTickLabels(R, this This)(R locations, const string[] text = null)
+    This xTickLabels(R, this This)
+    (R locations, const string[] text = null, Color[] colors = null)
     if(isInputRange!R && is(ElementType!R : double)) {
         userSetXAxis = true;
         xAxisLocations = toDoubleArray(locations);
+        enforce(colors.length == xAxisLocations.length);
+        this._xTickColors = colors.dup;
 
         if(text.length > 0) {
             enforce(text.length == xAxisLocations.length,
@@ -905,12 +916,16 @@ public:
     /**Set the Y axis labels.  If text is null (default) the axis text is
      * just the text of the axis locations.  R should be any range with
      * length identical to text (unless text is null) and elements implicitly
-     * convertible to double.
+     * convertible to double.  If colors is empty, all labels will be made
+     * black.  Otherwise it must be the same length as locations.
      */
-    This yTickLabels(R, this This)(R locations, const string[] text = null)
+    This yTickLabels(R, this This)
+    (R locations, const string[] text = null, Color[] colors = null)
     if(isInputRange!R && is(ElementType!R : double)) {
         userSetYAxis = true;
         yAxisLocations = toDoubleArray(locations);
+        enforce(colors.length == xAxisLocations.length);
+        this._yTickColors = colors.dup;
 
         if(text.length > 0) {
             enforce(text.length == yAxisLocations.length,
