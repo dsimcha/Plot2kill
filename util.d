@@ -351,7 +351,7 @@ public:
     }
 
     void addData(void[] buf) {
-        auto bytesWritten = gzwrite(gz, buf.ptr, buf.length);
+        auto bytesWritten = gzwrite(gz, buf.ptr, cast(uint) buf.length);
         enforce(bytesWritten == buf.length,
             "gzip write unsuccessful.");
     }

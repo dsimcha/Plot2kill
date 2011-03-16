@@ -890,7 +890,7 @@ public:
     if(isInputRange!R && is(ElementType!R : double)) {
         userSetXAxis = true;
         xAxisLocations = toDoubleArray(locations);
-        enforce(colors.length == xAxisLocations.length);
+        enforce(colors.length == xAxisLocations.length || colors.length == 0);
         this._xTickColors = colors.dup;
 
         if(text.length > 0) {
@@ -924,7 +924,7 @@ public:
     if(isInputRange!R && is(ElementType!R : double)) {
         userSetYAxis = true;
         yAxisLocations = toDoubleArray(locations);
-        enforce(colors.length == xAxisLocations.length);
+        enforce(colors.length == xAxisLocations.length || colors.length == 0);
         this._yTickColors = colors.dup;
 
         if(text.length > 0) {
