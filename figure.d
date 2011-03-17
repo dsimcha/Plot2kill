@@ -3723,8 +3723,8 @@ private:
             if(fract == 1 || floored == doubles.length - 1) {
                 return doubles[floored];
             } else {
-                return fract * doubles[floored] +
-                    (1 - fract) * doubles[floored + 1];
+                return (1 - fract) * doubles[floored] +
+                    fract * doubles[floored + 1];
             }
         }
 
