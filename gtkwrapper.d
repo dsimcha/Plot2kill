@@ -57,7 +57,7 @@ import gdk.Color, gdk.GC, gtk.Widget, gdk.Drawable, gtk.DrawingArea,
     cairo.PostScriptSurface, cairo.Surface, cairo.ImageSurface,
     gtk.FileSelection, gtk.MessageDialog, gtk.Menu, gtk.MenuItem,
     gtk.Entry, gtk.HBox, gtk.Label, gtk.FontSelectionDialog, gtk.RadioButton,
-    gtk.HSeparator, gtk.CheckButton, gtk.SeparatorMenuItem;
+    gtk.HSeparator, gtk.CheckButton, gtk.SeparatorMenuItem, gtkc.gtk;
 
 // Default initialize GTK.
 package void defaultInit() {
@@ -1471,7 +1471,8 @@ if(is(Base == gtk.Window.Window) || is(Base == gtk.MainWindow.MainWindow)) {
                 return false;
             }
 
-            rightClickMenu.popup(null, null, null, null, rightClick, 0);
+            rightClickMenu.popup(null, null, null, null, rightClick,
+                gtk_get_current_event_time());
 
             return true;
         }
