@@ -176,7 +176,7 @@ void doneWith(T)(T garbage) {
         static if(is(T : cairo.Surface.Surface)) {
             garbage.finish();
         }
-        garbage.destroy();
+        //garbage.destroy();
     }
 }
 
