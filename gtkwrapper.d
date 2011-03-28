@@ -162,23 +162,7 @@ enum TextAlignment {
 
 // This calls the relevant lib's method of cleaning up the given object, if
 // any.
-void doneWith(T)(T garbage) {
-    static if(is(T : gdk.GC.GC) || is(T : gdk.Pixmap.Pixmap) ||
-              is(T : gdk.Pixbuf.Pixbuf)) {
-        // Most things seem to manage themselves fine, but these objects
-        // leak like a seive.
-        garbage.unref();
-
-        // Since we're already in here be dragons territory, we may as well:
-        core.memory.GC.free(cast(void*) garbage);
-    } else static if(is(T : cairo.Context.Context) || is(T : cairo.Surface.Surface)) {
-
-        static if(is(T : cairo.Surface.Surface)) {
-            garbage.finish();
-        }
-        //garbage.destroy();
-    }
-}
+void doneWith(T)(T garbage) {}
 
 /**The base class for both FigureBase and Subplot.  Holds common functionality
  * like saving and text drawing.
@@ -234,10 +218,7 @@ private:
 
         enforce(surf, "Couldn't save file because surface couldn't be created.");
 
-        scope(exit) doneWith(surf);
         auto context = Context.create(surf);
-        scope(exit) doneWith(context);
-
         this.drawTo(context, PlotRect(0,0, width, height));
         surf.flush();
 
@@ -247,6 +228,8 @@ private:
             enforce(result == cairo_status_t.SUCCESS, text(
                 "Unsuccessfully wrote png.  Error:  ", result));
         }
+
+        surf.finish();
     }
 
     void saveImplSvgz(string filename, double width, double height) {
