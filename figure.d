@@ -39,7 +39,7 @@ version(dfl) {
     public import plot2kill.gtkwrapper;
 }
 
-package enum legendSymbolSize = 15;  // 30 by 30 pixels.
+package enum legendSymbolSize = 15;
 private enum legendSymbolTextSpace = 3;
 
 /**A container form for one or more Plot objects.
