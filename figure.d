@@ -39,7 +39,7 @@ version(dfl) {
     public import plot2kill.gtkwrapper;
 }
 
-package enum legendSymbolSize = 15;
+package enum legendSymbolSize = 15;  // 30 by 30 pixels.
 private enum legendSymbolTextSpace = 3;
 
 /**A container form for one or more Plot objects.
@@ -1326,6 +1326,7 @@ private:
     double[] _lowerErrors;
     double[] _upperErrors;
     BarPlot _stackOn;
+    bool _outlineBar = true;
 
     // Return the bottom of the bar at a given index.  This is zero unless
     // we have a stacked plot.
@@ -1426,8 +1427,11 @@ protected:
                                 zeroPoint;
             form.fillClippedRectangle(brush, leftPixels,
                 startAt, widthPixels, heightPixels);
-            form.drawClippedRectangle(blackPen, leftPixels,
-                startAt, widthPixels, heightPixels);
+
+            if(_outlineBar) {
+                form.drawClippedRectangle(blackPen, leftPixels,
+                    startAt, widthPixels, heightPixels);
+            }
 
             // Do error bars.
             if(lowerErrors.length) {
@@ -1466,6 +1470,16 @@ public:
     /// Setter
     final This barColor(this This)(Color newColor) {
         _barColor = newColor;
+        return cast(This) this;
+    }
+
+    /**Controls whether each bar is outlined in a black rectange.*/
+    final bool outlineBar()() {
+        return _outlineBar;
+    }
+
+    final This outlineBar(this This)(bool shouldOutline) {
+        _outlineBar = shouldOutline;
         return cast(This) this;
     }
 
