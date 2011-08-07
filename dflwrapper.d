@@ -326,7 +326,7 @@ public:
     void saveToFile
     (string filename, string type, double width = 0, double height = 0) {
         // User friendliness:  Remove . if it was included, don't be case sens.
-        type = tolower(type);
+        type = toLower(type);
         if(!type.empty && type.front == '.') {
             type.popFront();
         }
@@ -369,7 +369,7 @@ public:
      * and defaults to .png if no valid file format extension is found.
      */
     void saveToFile(string filename, double width = 0, double height = 0) {
-        auto type = tolower(getExt(filename));
+        auto type = toLower(getExt(filename));
 
         if(type != "bmp") {
             // Default to png.
@@ -516,7 +516,7 @@ private:
         }
 
         auto filename = dialog.fileName;
-        auto ext = tolower(getExt(filename));
+        auto ext = toLower(getExt(filename));
         string type;
         if(ext == "png" || ext == "bmp") {
             type = ext;

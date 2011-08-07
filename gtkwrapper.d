@@ -162,7 +162,23 @@ enum TextAlignment {
 
 // This calls the relevant lib's method of cleaning up the given object, if
 // any.
-void doneWith(T)(T garbage) {}
+void doneWith(T)(T garbage) {
+    static if(is(T : gdk.GC.GC) || is(T : gdk.Pixmap.Pixmap) ||
+              is(T : gdk.Pixbuf.Pixbuf)) {
+        // Most things seem to manage themselves fine, but these objects
+        // leak like a seive.
+        garbage.unref();
+
+        // Since we're already in here be dragons territory, we may as well:
+        core.memory.GC.free(cast(void*) garbage);
+    } else static if(is(T : cairo.Context.Context) || is(T : cairo.Surface.Surface)) {
+
+        static if(is(T : cairo.Surface.Surface)) {
+            garbage.finish();
+        }
+        //garbage.destroy();
+    }
+}
 
 /**The base class for both FigureBase and Subplot.  Holds common functionality
  * like saving and text drawing.
@@ -172,7 +188,7 @@ private:
     enum ubyteMax = cast(double) ubyte.max;
 
     // See drawLine() for an explanation of these variables.
-    PlotPoint[2] lastLine;
+    PlotPoint[] prevLine;
     Pen lastLinePen;
 
     void saveImplPixmap
@@ -217,8 +233,8 @@ private:
         }
 
         enforce(surf, "Couldn't save file because surface couldn't be created.");
-
         auto context = Context.create(surf);
+
         this.drawTo(context, PlotRect(0,0, width, height));
         surf.flush();
 
@@ -229,6 +245,9 @@ private:
                 "Unsuccessfully wrote png.  Error:  ", result));
         }
 
+        // This should really be a scope(exit) but using scope(exit) instead
+        // of putting this line down here segfaults on Linux 64 for reasons
+        // I don't understand.
         surf.finish();
     }
 
@@ -258,6 +277,33 @@ private:
         surf.flush();
     }
 
+    void finishLine() {
+        if(!prevLine.length) return;
+        assert(prevLine.length > 1);
+
+        context.save();
+        scope(exit) context.restore();
+        context.newPath();
+
+        auto c = lastLinePen.color;
+        context.setSourceRgb(c.r / ubyteMax, c.g / ubyteMax, c.b / ubyteMax);
+        context.setLineWidth(lastLinePen.lineWidth);
+
+        // If we're joining lines, it's always on a LineGraph or something,
+        // where miter creates weird artifacts.  Bevel looks best.
+        context.setLineJoin(cairo_line_join_t.BEVEL);
+
+        context.moveTo(prevLine.front.x + xOffset, prevLine.front.y + yOffset);
+        foreach(i; 1..prevLine.length) {
+            auto point = prevLine[i];
+            context.lineTo(point.x + xOffset, point.y + yOffset);
+        }
+
+        context.stroke();
+        prevLine.length = 0;
+        assumeSafeAppend(prevLine);
+    }
+
 protected:
     // Fonts tend to be different actual sizes on different GUI libs for a
     // given nominal size. This adjusts for that factor when setting default
@@ -277,35 +323,24 @@ public:
         /* HACK ALERT:  The front end to this library is designed for each line
          * to be drawn as a discrete unit, but for line joining purposes,
          * lines need to be drawn in a single path in Cairo.  Therefore,
-         * we save the last line drawn and draw it again if its end coincides
-         * with the current line's beginning.
+         * we save stuff here and only draw it when moving to a new continuous
+         * line.
          */
-        context.save();
-        scope(exit) context.restore();
-        context.newPath();
-
-        auto c = pen.color;
-        context.setSourceRgb(c.r / ubyteMax, c.g / ubyteMax, c.b / ubyteMax);
-        context.setLineWidth(pen.lineWidth);
-
-        // If we're joining lines, it's always on a LineGraph or something,
-        // where miter creates weird artifacts.  Bevel looks best.
-        context.setLineJoin(cairo_line_join_t.BEVEL);
-
-        if(lastLine[1] == PlotPoint(startX, startY) && lastLinePen == pen) {
-            // Redraw the last line.
-            context.moveTo(lastLine[0].x + xOffset, lastLine[0].y + yOffset);
-            context.lineTo(lastLine[1].x + xOffset, lastLine[1].y + yOffset);
-        } else {
-            context.moveTo(startX + xOffset, startY + yOffset);
+        if(prevLine.length > 0) {
+            if(startX != prevLine.back.x || startY != prevLine.back.y
+            || pen != lastLinePen) {
+                finishLine();
+            }
         }
 
-        lastLine[0] = PlotPoint(startX, startY);
-        lastLine[1] = PlotPoint(endX, endY);
-        lastLinePen = pen;
+        // This can change by calling finishLine().  Need to check it again
+        // instead of just using an else block.
+        if(prevLine.length == 0) {
+            prevLine ~= PlotPoint(startX, startY);
+            lastLinePen = pen;
+        }
 
-        context.lineTo(endX + xOffset, endY + yOffset);
-        context.stroke();
+        prevLine ~= PlotPoint(endX, endY);
     }
 
     final void drawLine(Pen pen, PlotPoint start, PlotPoint end) {
@@ -566,6 +601,7 @@ public:
         this.xOffset = whereToDraw.x;
         this.yOffset = whereToDraw.y;
         drawImpl();
+        finishLine();
     }
 
     /**Saves this figure to a file.  The file type can be one of either the
@@ -584,7 +620,7 @@ public:
     void saveToFile
     (string filename, string type, double width = 0, double height = 0) {
         // User friendliness:  Remove . if it was included, don't be case sens.
-        type = tolower(type);
+        type = toLower(type);
         if(!type.empty && type.front == '.') {
             type.popFront();
         }
@@ -612,7 +648,7 @@ public:
      * and defaults to .png if no valid file format extension is found.
      */
     void saveToFile(string filename, double width = 0, double height = 0) {
-        auto type = tolower(getExt(filename));
+        auto type = toLower(getExt(filename));
 
         try {
             saveToFile(filename, type, width, height);
@@ -1494,7 +1530,7 @@ if(is(Base == gtk.Window.Window) || is(Base == gtk.MainWindow.MainWindow)) {
             enforce(names.length == 1);
             auto name = names[0];
 
-            auto ext = tolower(getExt(name));
+            auto ext = toLower(getExt(name));
 
             string fileType;
             if(isValidExt(ext)) {
@@ -1523,7 +1559,7 @@ if(is(Base == gtk.Window.Window) || is(Base == gtk.MainWindow.MainWindow)) {
             }
 
             string name = fc.getFilename();
-            auto ext = tolower(getExt(name));
+            auto ext = toLower(getExt(name));
 
             string fileType;
             if(isValidExt(ext)) {

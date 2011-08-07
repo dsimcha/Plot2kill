@@ -78,7 +78,6 @@ void main(string[] args)
     LineGraph([8,6,7,5,3,0,9]).pointSymbol('O')
         .pointColor(getColor(255, 0, 0))
         .toFigure.saveToFile("foo.svg");
-
     auto stacked = Figure(
         stackedBar(iota(3), [[5, 3, 1], [1, 2, 3]], 0.6,
             ["Coffee", "Tea"]
