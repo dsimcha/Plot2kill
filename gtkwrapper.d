@@ -47,6 +47,8 @@ import plot2kill.guiagnosticbase;
 import plot2kill.subplot;
 import plot2kill.figure;
 
+alias std.string.CaseSensitive CaseSensitive;
+
 static import std.file;
 
 import gdk.Color, gdk.GC, gtk.Widget, gdk.Drawable, gtk.DrawingArea,
