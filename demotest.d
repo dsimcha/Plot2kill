@@ -37,7 +37,7 @@ import std.conv, std.exception, std.algorithm, std.typecons,
     std.stdio;
 
 // Uncomment this to compile/run the tests.
-//version = test;
+version = test;
 
 
 // These aren't formal unittests, but they exercise the basic functionality.

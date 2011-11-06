@@ -369,7 +369,7 @@ public:
      * and defaults to .png if no valid file format extension is found.
      */
     void saveToFile(string filename, double width = 0, double height = 0) {
-        auto type = toLower(getExt(filename));
+        auto type = toLower(extension(filename));
 
         if(type != "bmp") {
             // Default to png.
@@ -516,7 +516,7 @@ private:
         }
 
         auto filename = dialog.fileName;
-        auto ext = toLower(getExt(filename));
+        auto ext = toLower(extension(filename));
         string type;
         if(ext == "png" || ext == "bmp") {
             type = ext;
