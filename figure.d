@@ -3249,6 +3249,125 @@ class LineGraph : Plot {
     }
 }
 
+/**
+This class creates a best-fit line, and is useful for adding to scatter
+plot figures.  The default line color is red instead of black and the default
+width is two instead of one to make the best-fit line stand out against the
+default scatter plot settings.
+*/
+class LinearFit : LineGraph {
+    private double _alpha, _beta, _cor;
+    
+    final @property const pure nothrow @safe {
+        /** 
+        The intercept term of the fit line.
+        */
+        double alpha() { return _alpha; }
+        
+        /**
+        The slope of the fit line.
+        */
+        double beta() { return _beta; }
+        
+        /**
+        The correlation between the predictions made by the regression and
+        the actual values.
+        */
+        double cor() { return _cor; }
+        
+        /**
+        The R^2 value of the fit line.
+        */
+        double r2() { return _cor ^^ 2; }
+    }
+
+    private this() {
+        super();
+        _lineColor = getColor(255, 0, 0);
+        _lineWidth = 2;
+    }
+
+    /**
+    Compute the regression coefficients and create a best-fit line, where
+    x is the independent variable and y is the dependent variable.
+    lowerLim and upperLim control how far the best-fit line is extended in
+    each direction along the X-axis.  By default the line is extended between 
+    the minimum and maximum values of x.
+    */
+    static LinearFit opCall(R1, R2)
+    (R1 x, R2 y, double lower = double.nan, double upper = double.nan)
+    if(isInputRange!R1 && is(ElementType!R1 : double) &&
+       isInputRange!R2 && is(ElementType!R2 : double)
+    ) {
+        
+        static if(isForwardRange!R1) {
+            alias x xx;
+        } else {
+            auto xx = toDoubleArray(x);
+        }
+        
+        static if(isForwardRange!R2) {
+            alias y yy;
+        } else {
+            auto yy = toDoubleArray(y);
+        }
+        
+        import std.numeric;
+        
+        // This is somewhat inefficient, etc. because all the info has
+        // to fit neatly on a scatter plot, so we can't be dealing with
+        // millions of points, and because I don't want to add a dependency
+        // to do it more properly.
+        immutable xLen = walkLength(xx);
+        immutable yLen = walkLength(yy);
+        enforce(xLen == yLen, "x, y must be same length for LinearFit.");
+        enforce(xLen > 1, "Need at least two elements for LinearFit.");
+        
+        immutable xMean = reduce!"a + b"(0.0, xx.save) / xLen;       
+        immutable yMean = reduce!"a + b"(0.0, yy.save) / yLen;
+    
+        double xDotX = 0, xDotY = 0, yDotY = 0;
+        foreach(xElem, yElem; lockstep(xx.save, yy.save)) {
+            immutable xCenter = xElem - xMean;
+            immutable yCenter = yElem - yMean;
+            xDotX += xCenter ^^ 2;
+            yDotY += yCenter ^^ 2;
+            xDotY += xCenter * yCenter;
+        }
+        
+        auto ret = new LinearFit();
+        ret._beta = xDotY / xDotX;
+        ret._alpha = yMean - ret._beta * xMean;
+        
+        ret._cor = xDotY / sqrt(xDotX) / sqrt(yDotY);
+        
+        if(isNaN(lower) || isNaN(upper)) {
+            auto minMaxX = reduce!(min, max)(xx.save);
+            lower = minMaxX[0];
+            upper = minMaxX[1];
+        }
+        
+        ret.x = [lower, upper];
+        ret.y.length = 2;
+        ret.y[] = ret.x[] * ret._beta + ret.alpha;
+        ret.fixBounds();
+        
+        return ret;
+    }
+}
+
+unittest {
+    auto x = [8, 6, 7, 5, 3, 0, 9];    
+    auto y = [3, 1, 4, 1, 5, 9, 2];
+    
+    // Make sure regression values are right.
+    auto fit = LinearFit(x, y);
+    assert(approxEqual(fit.cor, -0.7567996));
+    assert(approxEqual(fit.beta, -0.6881));
+    assert(approxEqual(fit.alpha, 7.3069));
+    assert(approxEqual(fit.r2, 0.5727));
+}
+
 private void constructXYGraph(T, R1, R2)(R1 x, R2 y, T ret) {
     ret.x = toDoubleArray(x);
     ret.y = toDoubleArray(y);

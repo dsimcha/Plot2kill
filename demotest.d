@@ -37,7 +37,7 @@ import std.conv, std.exception, std.algorithm, std.typecons,
     std.stdio;
 
 // Uncomment this to compile/run the tests.
-version = test;
+//version = test;
 
 
 // These aren't formal unittests, but they exercise the basic functionality.
@@ -54,6 +54,15 @@ version(gtk) {
 import dstats.all, std.stdio;
 void main(string[] args)
 {
+    {
+        auto x = [8,6,7,5,4,0,9];
+        auto y = [3,1,4,1,5,9,2];
+        
+        Figure(
+            ScatterPlot(x, y), LinearFit(x, y)
+        ).showAsMain();
+    }
+    
     double[][] matrix = new double[][10];
     foreach(ref row; matrix) row = randArray!rNorm(10, 0, 1);
 //    foreach(i, r; matrix[1..$]) {
