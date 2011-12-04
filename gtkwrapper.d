@@ -46,6 +46,7 @@ import plot2kill.util;
 import plot2kill.guiagnosticbase;
 import plot2kill.subplot;
 import plot2kill.figure;
+import plot2kill.plot;
 
 alias std.string.CaseSensitive CaseSensitive;
 

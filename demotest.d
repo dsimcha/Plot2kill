@@ -55,6 +55,19 @@ import dstats.all, std.stdio;
 void main(string[] args)
 {
     {
+        auto mat = [[3.0, 1, 4, 1, 5, 9, 2],
+                    [8.0, 6, 7, 5, 3, 0, 9],
+                    [2.0, 7, 1, 8, 2, 8, 1],
+                    [7.0, 1, 2, 6, 9, 1, 3],
+                    [4.0, 1, 8, 3, 0, 9, 3]];
+        auto names = ["Pi", "80s Song", "e", "Made-up 1", "Made-up 2"];
+        auto clusters = hierarchicalCluster(mat, ClusterBy.rows, names);
+        auto dend = Dendrogram(clusters);
+            
+        dend.toLabeledFigure.showAsMain();
+    }
+    
+    {
         auto x = [8,6,7,5,4,0,9];
         auto y = [3,1,4,1,5,9,2];
         
@@ -293,4 +306,5 @@ void main(string[] args)
 
     sp.showAsMain();
 
-}}
+}
+}

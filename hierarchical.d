@@ -144,6 +144,12 @@ struct Cluster {
         res = right.opApply(dg);
         return res;
     }
+    
+    /// The number of leaf nodes in this cluster.
+    int nLeafNodes() const pure nothrow @property {
+        if(isLeaf) return 1;
+        return left.nLeafNodes + right.nLeafNodes;
+    }
 }
 
 /**
