@@ -301,12 +301,20 @@ public:
      *        If you pass multiple figures, they are simply added iteratively
      *        according to these rules.
      */
-     This addFigure(this This)(FigureBase[] toAdd...) {
+     This addFigure(this This)(FigureBase[] toAdd) {
          foreach(fig; toAdd) {
              doAdd(fig);
          }
 
          return cast(This) this;
+     }
+     
+     /// Ditto
+     This addFigure(this This, F...)(F toAdd)
+     if(allSatisfy!(isFigureBase, toAdd)) {
+        FigureBase[toAdd.length] arr;
+        foreach(i, elem; toAdd) arr[i] = elem;
+        return addFigure(arr[]);
      }
 
      /**
@@ -527,4 +535,8 @@ package class SubplotWidget : FigureWidget {
         }
     }
 }
+}
+
+private template isFigureBase(F) {
+    enum isFigureBase = is(F : FigureBase);
 }

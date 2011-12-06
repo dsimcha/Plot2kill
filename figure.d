@@ -835,14 +835,22 @@ public:
     }
 
     ///
-    static Figure opCall() {
+    static Figure opCall()() {
         return new Figure;
     }
 
     /**Convenience factory that adds all plots provided to the Figure.*/
-    static Figure opCall(Plot[] plots...) {
-        return new Figure(plots);
+    static Figure opCall(P)(P[] plots)  if(is(P : Plot)) {
+        return new Figure(cast(Plot[]) plots);
     }
+    
+    /// Ditto
+    static Figure opCall(P...)(P plots) 
+    if(allSatisfy!(isPlot, P)) {
+        Plot[plots.length] arr;
+        foreach(i, p; plots) arr[i] = p;
+        return opCall(arr[]);
+    }        
 
     /**Manually set the X axis limits.
      */
@@ -1047,7 +1055,7 @@ public:
     }
 
     /**Add one or more plots to the figure.*/
-    This addPlot(this This)(Plot[] plots...) {
+    This addPlot(this This, P)(P[] plots) if(is(P : Plot)) {
         foreach(plot; plots) {
             if(!isValidPlot(plot)) {
                 continue;
@@ -1061,6 +1069,14 @@ public:
         }
 
         return cast(This) this;
+    }
+    
+    /// Ditto
+    This addPlot(this This, P...)(P plots)
+    if(allSatisfy!(isPlot, P)) {
+        Plot[plots.length] arr;
+        foreach(i, elem; plots) arr[i] = elem;
+        return addPlot(arr[]);
     }
 
     /**
@@ -1218,3 +1234,5 @@ struct NoCopy {
         return NoCopy(data[lower..upper]);
     }
 }
+
+private template isPlot(P) { enum isPlot = is(P : Plot); }
