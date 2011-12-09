@@ -301,7 +301,7 @@ public:
      *        If you pass multiple figures, they are simply added iteratively
      *        according to these rules.
      */
-     This addFigure(this This)(FigureBase[] toAdd) {
+     This addFigure(this This)(FigureBase[] toAdd...) {
          foreach(fig; toAdd) {
              doAdd(fig);
          }
@@ -309,13 +309,13 @@ public:
          return cast(This) this;
      }
      
-     /// Ditto
-     This addFigure(this This, F...)(F toAdd)
-     if(allSatisfy!(isFigureBase, toAdd)) {
-        FigureBase[toAdd.length] arr;
-        foreach(i, elem; toAdd) arr[i] = elem;
-        return addFigure(arr[]);
-     }
+//     /// Ditto
+//     This addFigure(this This, F...)(F toAdd)
+//     if(allSatisfy!(isFigureBase, toAdd)) {
+//        FigureBase[toAdd.length] arr;
+//        foreach(i, elem; toAdd) arr[i] = elem;
+//        return addFigure(arr[]);
+//     }
 
      /**
      Returns the zoomed figure, or null if no figure is currently zoomed.

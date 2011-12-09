@@ -1055,7 +1055,7 @@ public:
     }
 
     /**Add one or more plots to the figure.*/
-    This addPlot(this This, P)(P[] plots) if(is(P : Plot)) {
+    This addPlot(this This)(Plot[] plots...) {
         foreach(plot; plots) {
             if(!isValidPlot(plot)) {
                 continue;
@@ -1070,14 +1070,14 @@ public:
 
         return cast(This) this;
     }
-    
-    /// Ditto
-    This addPlot(this This, P...)(P plots)
-    if(allSatisfy!(isPlot, P)) {
-        Plot[plots.length] arr;
-        foreach(i, elem; plots) arr[i] = elem;
-        return addPlot(arr[]);
-    }
+//    
+//    /// Ditto
+//    This addPlot(this This, P...)(P plots)
+//    if(allSatisfy!(isPlot, P)) {
+//        Plot[plots.length] arr;
+//        foreach(i, elem; plots) arr[i] = elem;
+//        return addPlot(arr[]);
+//    }
 
     /**
     Remove one or more plots from the figure.  If the plots are not in the
