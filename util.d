@@ -151,7 +151,10 @@ package bool nullOrInit(T)(T arg) {
     static if(is(T == class)) {
         return arg is null;
     } else {
-        return arg == T.init;
+        // Can't just check if arg == T.init because NaNs could be involved.
+        import core.stdc.string;
+        T init;
+        return memcmp(&arg, &init, T.sizeof) == 0;
     }
 }
 

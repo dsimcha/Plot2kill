@@ -309,14 +309,18 @@ public:
          return cast(This) this;
      }
      
-//     /// Ditto
-//     This addFigure(this This, F...)(F toAdd)
-//     if(allSatisfy!(isFigureBase, toAdd)) {
-//        FigureBase[toAdd.length] arr;
-//        foreach(i, elem; toAdd) arr[i] = elem;
-//        return addFigure(arr[]);
-//     }
+     /// Ditto
+     This addFigure(this This, F)(F[] toAdd)
+     if(is(F : FigureBase) && !is(F == FigureBase)) {
+        // I have no idea why forwarding to the overload doesn't work.
+        // Must be some obscure DMD bug.
+        foreach(fig; toAdd) {
+            doAdd(fig);
+        }
 
+        return cast(This) this;
+     }
+     
      /**
      Returns the zoomed figure, or null if no figure is currently zoomed.
      */
@@ -535,8 +539,4 @@ package class SubplotWidget : FigureWidget {
         }
     }
 }
-}
-
-private template isFigureBase(F) {
-    enum isFigureBase = is(F : FigureBase);
 }

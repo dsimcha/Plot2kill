@@ -840,17 +840,15 @@ public:
     }
 
     /**Convenience factory that adds all plots provided to the Figure.*/
-    static Figure opCall(P)(P[] plots)  if(is(P : Plot)) {
-        return new Figure(cast(Plot[]) plots);
+    static Figure opCall()(Plot[] plots...) {
+        return new Figure(plots);
     }
     
     /// Ditto
-    static Figure opCall(P...)(P plots) 
-    if(allSatisfy!(isPlot, P)) {
-        Plot[plots.length] arr;
-        foreach(i, p; plots) arr[i] = p;
-        return opCall(arr[]);
-    }        
+    static Figure opCall(P)(P[] plots)
+    if(is(P : Plot) && !is(P == Plot)) {
+        return new Figure(cast(Plot[]) plots);
+    }
 
     /**Manually set the X axis limits.
      */
@@ -1070,14 +1068,12 @@ public:
 
         return cast(This) this;
     }
-//    
-//    /// Ditto
-//    This addPlot(this This, P...)(P plots)
-//    if(allSatisfy!(isPlot, P)) {
-//        Plot[plots.length] arr;
-//        foreach(i, elem; plots) arr[i] = elem;
-//        return addPlot(arr[]);
-//    }
+
+    /// Ditto
+    This addPlot(this This, P)(P[] plots) 
+    if(is(P : Plot) && !is(P == Plot)) {
+        return addPlot!(This)(cast(Plot[]) plots);
+    }
 
     /**
     Remove one or more plots from the figure.  If the plots are not in the
@@ -1100,6 +1096,12 @@ public:
         leftLim = reduce!min(double.infinity, map!"a.leftMost"(plotData));
 
         return cast(This) this;
+    }
+    
+    /// Ditto
+    This removePlot(this This, P)(P[] plots) 
+    if(is(P : Plot) && !is(P == Plot)) {
+        return removePlot!(This)(cast(Plot[]) plots);
     }
 
     /**Draw the plot but don't display it on screen.*/

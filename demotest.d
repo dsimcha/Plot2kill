@@ -70,10 +70,22 @@ void main(string[] args)
     {
         auto x = [8,6,7,5,4,0,9];
         auto y = [3,1,4,1,5,9,2];
+        auto scatter = ScatterPlot(x, y);
+        auto linear = LinearFit(x, y);
         
-        Figure(
-            ScatterPlot(x, y), LinearFit(x, y)
-        ).showAsMain();
+        Figure(scatter, linear).showAsMain();
+        
+        // Test covariance fixes.
+        auto plotArr = [scatter, scatter];
+        auto fig2 = Figure(plotArr);
+        fig2.removePlot(scatter, linear);
+        fig2.addPlot(scatter, linear);
+        
+        auto arr2 = [scatter, scatter];
+        fig2.removePlot(arr2);
+        
+        auto arr3 = [linear, linear];
+        fig2.addPlot(arr3);
     }
     
     double[][] matrix = new double[][10];
@@ -298,11 +310,15 @@ void main(string[] args)
     version(gtk) {
         sp.saveToFile("sp.pdf", 1280, 1024);
         sp.saveToFile("sp.svg", 1280, 1024);
-
     }
 
     sp.saveToFile("sp" ~ libName ~ ".bmp", 1280, 1024);
     sp.saveToFile("sp" ~ libName ~ ".png", 1280, 1024);
+    
+    // Test covariance fixes.
+    auto sp2 = Subplot();
+    auto figArr = [hist, binom];
+    sp2.addFigure(figArr);
 
     sp.showAsMain();
 
