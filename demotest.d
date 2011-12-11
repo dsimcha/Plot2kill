@@ -1,8 +1,5 @@
-/* These are demos/tests for Plot2Kill.  Most of them require my dstats lib.
- * dstats is not a dependency of Plot2Kill, except for these demos.  I chose to
- * use dstats-related demos becuase statistics-related plots is where I got
- * many of my use cases from, and Plot2Kill probably would work nicely with
- * dstats.
+/* These are demos/tests for Plot2Kill.  They serve both as regression tests
+ * and as examples of usage.
  *
  * Copyright (C) 2010-2011 David Simcha
  *
@@ -32,28 +29,24 @@
  * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS IN THE SOFTWARE.
  */
-import std.conv, std.exception, std.algorithm, std.typecons,
-    std.traits, std.math, std.array, std.range, std.functional, core.thread,
-    std.stdio;
+version(test):
+     
+import std.conv, std.exception, std.algorithm, std.random,
+    std.traits, std.math, std.array, std.range, std.mathspecial, std.stdio;
 
-// Uncomment this to compile/run the tests.
-//version = test;
-
-
-// These aren't formal unittests, but they exercise the basic functionality.
-// Most require dstats.
-version(test) {
 import plot2kill.all, plot2kill.util;
 
 version(gtk) {
     enum string libName = "GTK";
-} else version(dfl) {
+} 
+
+version(dfl) {
     enum string libName = "DFL";
 }
 
-import dstats.all, std.stdio;
 void main(string[] args)
 {
+    // Test dendrogram.
     {
         auto mat = [[3.0, 1, 4, 1, 5, 9, 2],
                     [8.0, 6, 7, 5, 3, 0, 9],
@@ -67,6 +60,7 @@ void main(string[] args)
         dend.toLabeledFigure.showAsMain();
     }
     
+    // Test linear fit line.
     {
         auto x = [8,6,7,5,4,0,9];
         auto y = [3,1,4,1,5,9,2];
@@ -88,30 +82,35 @@ void main(string[] args)
         fig2.addPlot(arr3);
     }
     
-    double[][] matrix = new double[][10];
-    foreach(ref row; matrix) row = randArray!rNorm(10, 0, 1);
-//    foreach(i, r; matrix[1..$]) {
-//        r[] = 0.2 * r[] + 0.8 * matrix[i][];
-//    }
-    auto rowLabels = to!(string[])(array(iota(10)));
-    auto colLabels = to!(string[])(array(iota(10)));
+    // Test hierarchical heat maps.
+    {
+        double[][] matrix = new double[][10];
+        foreach(ref row; matrix) row = randArray!rNorm(10, 0, 1);
+        auto rowLabels = to!(string[])(array(iota(10)));
+        auto colLabels = to!(string[])(array(iota(10)));
 
-    auto arr = [-2.5, -2, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, 2];
-    copy(arr, transversal(matrix, 1));
-    copy(arr, transversal(matrix, 7));
-    arr[] += randArray!rNorm(10, 0, 0.5)[];
-    copy(arr, transversal(matrix, 3));
+        auto arr = [-2.5, -2, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, 2];
+        copy(arr, transversal(matrix, 1));
+        copy(arr, transversal(matrix, 7));
+        arr[] += randArray!rNorm(10, 0, 0.5)[];
+        copy(arr, transversal(matrix, 3));
 
-    hierarchicalHeatMap(matrix, rowLabels, colLabels)
-        .colors([getColor(255, 0, 0), getColor(0, 0, 0), getColor(0, 255, 0)])
-        .toFigure
-        .xTickLabels(iota(1, 11), colLabels)
-        .yTickLabels(iota(1, 11), rowLabels)
-        .showAsMain();
-
-    LineGraph([8,6,7,5,3,0,9]).pointSymbol('O')
-        .pointColor(getColor(255, 0, 0))
-        .toFigure.saveToFile("foo.svg");
+        hierarchicalHeatMap(matrix, rowLabels, colLabels)
+            .colors([getColor(255, 0, 0), getColor(0, 0, 0), getColor(0, 255, 0)])
+            .toFigure
+            .xTickLabels(iota(1, 11), colLabels)
+            .yTickLabels(iota(1, 11), rowLabels)
+            .showAsMain();
+    }
+    
+    // Test point symbols on line graphs.
+    {
+        LineGraph([8,6,7,5,3,0,9]).pointSymbol('O')
+            .pointColor(getColor(255, 0, 0))
+            .toFigure.saveToFile("foo.svg");
+    }
+    
+    // Test stacked bar plots.
     auto stacked = Figure(
         stackedBar(iota(3), [[5, 3, 1], [1, 2, 3]], 0.6,
             ["Coffee", "Tea"]
@@ -122,14 +121,14 @@ void main(string[] args)
         .xTickLabels(iota(3), ["Morning", "Afternoon", "Evening"])
         .yLabel("Beverages");
 
-    // Test removing a figure.
+    // Test removing a plot.
     auto fooHist = Histogram(randArray!rNorm(100, 0, 1), 10);
     stacked.addPlot(fooHist);
- //   stacked.showAsMain();
 
     stacked.removePlot(fooHist);
     stacked.showAsMain();
 
+    // Test grouped bar plots.
     auto withoutCaffeine = [8, 6, 3];
     auto withCaffeine = [5, 3, 1];
     auto sleepinessPlot = groupedBar(
@@ -150,6 +149,7 @@ void main(string[] args)
         );
     sleepinessFig.showAsMain();
 
+    // Test box-and whisker plots.
     auto boxFigNorm = BoxPlot(0.05).addData(
         randArray!rNorm(100, 0, 1),
         randArray!rNorm(100, 0, 0.5),
@@ -174,7 +174,7 @@ void main(string[] args)
 
     boxFig.showAsMain();
 
-    // This one tests zooming in heavily, specifically on the tail of a distrib.
+    // Test line graphs and histograms on the same plot.
     auto histRand = Histogram(
         randArray!rNorm(5_000, 0, 1), 100, -5, 5, OutOfBounds.Ignore);
     histRand.put(
@@ -182,8 +182,8 @@ void main(string[] args)
     );
     histRand.legendText = "Empirical";
 
-    auto histLine = ContinuousFunction(
-        parametrize!normalPDF(0, 1), -5, 5);
+    auto histLine = ContinuousFunction(&stdNormal, -5, 5);
+    
     histLine.legendText = "Theoretical";
     histRand.scaleDistributionFunction(histLine);
     histLine.lineColor = getColor(255, 0, 0);
@@ -202,6 +202,7 @@ void main(string[] args)
     hist.saveToFile("foo" ~ libName ~ ".bmp");
     hist.showAsMain();
 
+    // Test error bars.
     auto errs = [0.1, 0.2, 0.3, 0.4];
     auto linesWithErrors =
         LineGraph([1,2,3,4], [1,2,3,8], errs, errs);
@@ -210,11 +211,15 @@ void main(string[] args)
     linesWithErrorsFig.title = "Error Bars";
     linesWithErrorsFig.showAsMain();
 
+    // Plot a normal approximation of the binomial distribution superimposed
+    // on the exact distribution.
     auto binomExact =
-        DiscreteFunction(parametrize!binomialPMF(8, 0.5), 0, 8);
+        DiscreteFunction((int x) { return binomialPMF(x, 8, 0.5); }, 0, 8);
     binomExact.legendText = "Exact";
-    auto binomApprox =
-        ContinuousFunction(parametrize!normalPDF(4, sqrt(2.0)), -1, 9, 100);
+    auto binomApprox = ContinuousFunction(
+        (double x) { return stdNormal((x - 4) / SQRT2) / SQRT2; }, -1, 9, 100
+    );
+        
     binomApprox.legendText = "Approx.";
     binomApprox.lineWidth = 2;
     auto binom = Figure(binomExact, binomApprox);
@@ -226,6 +231,7 @@ void main(string[] args)
     binom.xLim(0, 8);
     binom.showAsMain();
 
+    // Test a basic scatter plot with grid lines.
     auto scatter = ScatterPlot(
         randArray!rNorm(100, 0, 1),
         randArray!rNorm(100, 0, 1)
@@ -236,6 +242,7 @@ void main(string[] args)
     scatter.horizontalGrid = true;
     scatter.showAsMain();
 
+    // Test error bars with bar plots.
     auto bars = BarPlot([1,2,3], [8,7,3], 0.5, [1,2,4], [1,2,4]);
     auto barFig = bars.toFigure;
     barFig.xTickLabels(bars.centers, ["Plan A", "Plan B", "Plan C"]);
@@ -244,21 +251,24 @@ void main(string[] args)
     barFig.rotatedXTick = true;
     barFig.showAsMain();
 
+    // Test QQ plots.
     auto qq = QQPlot(
-        randArray!rStudentT(100, 7),
-        parametrize!invNormalCDF(0, 1)
+        randArray!rNorm(100, 0, 1),
+        &normalDistributionInverse
     ).toFigure;
-    qq.title = "Normal Vs. Student's T w/ 7 D.F.";
-    qq.xLabel = "Normal";
-    qq.yLabel = "Student's T";
+    qq.title = "Normal(0, 1) Theoretical vs. Actual";
+    qq.xLabel = "Theoretical Quantile";
+    qq.yLabel = "Actual Quantile";
     qq.showAsMain();
 
+    // Test equal frequency histograms.
     auto frqHist = FrequencyHistogram(
         randArray!rNorm(100_000, 0, 1), 100).toFigure;
     frqHist.xLim(-2.5, 2.5);
 
+    // Test unique histograms.
     auto uniqueHist = UniqueHistogram(
-        randArray!rBinomial(10_000, 8, 0.5)
+        randArray!uniform(10_000, 0, 8)
     );
     uniqueHist.histType = HistType.Probability;
     uniqueHist.barColor = getColor(0, 200, 0);
@@ -266,6 +276,7 @@ void main(string[] args)
     uniqueHistFig.title = "Unique Histogram";
     uniqueHistFig.showAsMain();
 
+    // Test heat scatter plots.
     auto heatScatter = HeatScatter(100, 100, -6, 6, -5, 5);
     heatScatter.boundsBehavior = OutOfBounds.Ignore;
     heatScatter.colors = [getColor(0, 128, 0),
@@ -294,6 +305,7 @@ void main(string[] args)
 
    heatScatterFig.showAsMain();
 
+    // Test subplots.  Put a whole bunch of what we did on one big subplot.
     enum string titleStuff = "Plot2Kill " ~ libName ~
         " Demo  (Programmatically  saved, no longer a screenshot)";
     enum string subplotY = "Pretty Rotated Text";
@@ -307,6 +319,7 @@ void main(string[] args)
         .yLabel(subplotY)
         .xLabel("Boring X-Axis Label");
 
+    // Test saving results to a file.
     version(gtk) {
         sp.saveToFile("sp.pdf", 1280, 1024);
         sp.saveToFile("sp.svg", 1280, 1024);
@@ -323,4 +336,36 @@ void main(string[] args)
     sp.showAsMain();
 
 }
+
+// Statistical functions for statistics oriented plots.  These are mostly
+// cut and pasted from my dstats library.
+double[] randArray(alias randFun, Args...)(size_t N, auto ref Args args) {
+    auto ret = uninitializedArray!(double[])(N);
+    foreach(ref elem; ret) {
+        elem = randFun(args);
+    }
+
+    return ret;
+}
+
+double rNorm(double mean, double sd) {
+    immutable p = uniform(0.0, 1.0);
+    return normalDistributionInverse(p) * sd + mean;
+}
+
+double rExponential(double lambda) {
+    double p = uniform(0.0, 1.0);
+    return -log(p) / lambda;
+}
+
+double stdNormal(double x) {
+    return exp(-(x * x) / 2) / sqrt(2 * PI);
+}
+
+double binomialPMF(ulong k, ulong n, double p) {
+    return exp(logNcomb(n, k) + k * log(p) + (n - k) * log(1 - p));
+}
+
+double logNcomb(ulong n, ulong k) {
+    return logGamma(n + 1) - (logGamma(k + 1) + logGamma(n - k + 1));
 }
