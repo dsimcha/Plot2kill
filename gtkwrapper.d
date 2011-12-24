@@ -651,7 +651,7 @@ public:
      * and defaults to .png if no valid file format extension is found.
      */
     void saveToFile(string filename, double width = 0, double height = 0) {
-        auto type = toLower(extension(filename));
+        auto type = toLower(extensionNoDot(filename));
 
         try {
             saveToFile(filename, type, width, height);
@@ -1533,7 +1533,7 @@ if(is(Base == gtk.Window.Window) || is(Base == gtk.MainWindow.MainWindow)) {
             enforce(names.length == 1);
             auto name = names[0];
 
-            auto ext = toLower(extension(name));
+            auto ext = toLower(extensionNoDot(name));
 
             string fileType;
             if(isValidExt(ext)) {
@@ -1562,7 +1562,7 @@ if(is(Base == gtk.Window.Window) || is(Base == gtk.MainWindow.MainWindow)) {
             }
 
             string name = fc.getFilename();
-            auto ext = toLower(extension(name));
+            auto ext = toLower(extensionNoDot(name));
 
             string fileType;
             if(isValidExt(ext)) {
