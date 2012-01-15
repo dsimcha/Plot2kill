@@ -114,6 +114,19 @@ package enum drawErrorMixin = q{
     }
 };
 
+/*
+Replicates the behavior of the deprecated std.path.getExt() by dropping 
+the dot.
+*/
+inout(char)[] extensionNoDot(inout(char)[] filename) {
+    auto ret = extension(filename);
+    if(ret.length > 0 && ret[0] == '.') {
+        ret = ret[1..$];
+    }
+
+    return ret;
+}
+
 /* Converts an array of doubles to strings, rounding off numbers very close
  * to zero.
  */
