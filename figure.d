@@ -262,11 +262,13 @@ private:
         auto black = getColor(0, 0, 0);
 
         foreach(i, tickPoint; xAxisLocations) {
+            if(!(tickPoint >= leftLim && tickPoint <= rightLim)) continue;
             auto color = (_xTickColors.length) ? _xTickColors[i] : black;
             drawXTick(tickPoint, xAxisText[i], color);
         }
 
         foreach(i, tickPoint; yAxisLocations) {
+            if(!(tickPoint >= lowerLim && tickPoint <= upperLim)) continue;
             auto color = (_yTickColors.length) ? _yTickColors[i] : black;
             drawYTick(tickPoint, yAxisText[i], color);
         }

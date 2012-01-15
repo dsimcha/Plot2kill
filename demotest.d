@@ -67,7 +67,9 @@ void main(string[] args)
         auto scatter = ScatterPlot(x, y);
         auto linear = LinearFit(x, y);
         
-        Figure(scatter, linear).showAsMain();
+        Figure(scatter, linear)
+            .xTickLabels([-0.5, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+            .showAsMain();
         
         // Test covariance fixes.
         auto plotArr = [scatter, scatter];
