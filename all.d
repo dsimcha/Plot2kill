@@ -13,7 +13,7 @@ public import plot2kill.figure, plot2kill.subplot, plot2kill.guiagnosticbase,
 
 version(dfl) {
     public import plot2kill.dflwrapper;
-} else version(gtk) {
+} else {
     public import plot2kill.gtkwrapper;
 }
 
