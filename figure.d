@@ -35,7 +35,7 @@ import plot2kill.plot, plot2kill.util, std.typetuple, std.random;
 
 version(dfl) {
     public import plot2kill.dflwrapper;
-} else version(gtk) {
+} else {
     public import plot2kill.gtkwrapper;
 }
 
