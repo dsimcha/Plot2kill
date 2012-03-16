@@ -432,9 +432,7 @@ package class SubplotControl : FigureControl {
     }
 }
 
-}
-
-version(gtk) {
+} else {
 
 import gtk.DrawingArea, gdk.Drawable, gtk.Widget;
 

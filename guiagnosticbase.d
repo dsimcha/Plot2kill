@@ -33,7 +33,7 @@ module plot2kill.guiagnosticbase;
 
 version(dfl) {
     import plot2kill.dflwrapper;
-} else version(gtk) {
+} else {
     import plot2kill.gtkwrapper;
 }
 

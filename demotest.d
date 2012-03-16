@@ -36,13 +36,12 @@ import std.conv, std.exception, std.algorithm, std.random,
 
 import plot2kill.all, plot2kill.util;
 
-version(gtk) {
-    enum string libName = "GTK";
-} 
 
 version(dfl) {
     enum string libName = "DFL";
-}
+} else {
+    enum string libName = "GTK";
+} 
 
 void main(string[] args)
 {
@@ -322,7 +321,8 @@ void main(string[] args)
         .xLabel("Boring X-Axis Label");
 
     // Test saving results to a file.
-    version(gtk) {
+    version(dfl) {
+    } else {
         sp.saveToFile("sp.pdf", 1280, 1024);
         sp.saveToFile("sp.svg", 1280, 1024);
     }
