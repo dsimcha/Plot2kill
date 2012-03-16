@@ -308,7 +308,7 @@ public:
 
          return cast(This) this;
      }
-     
+
      /// Ditto
      This addFigure(this This, F)(F[] toAdd)
      if(is(F : FigureBase) && !is(F == FigureBase)) {
@@ -320,7 +320,7 @@ public:
 
         return cast(This) this;
      }
-     
+
      /**
      Returns the zoomed figure, or null if no figure is currently zoomed.
      */
@@ -432,9 +432,7 @@ package class SubplotControl : FigureControl {
     }
 }
 
-}
-
-version(gtk) {
+} else {
 
 import gtk.DrawingArea, gdk.Drawable, gtk.Widget;
 
