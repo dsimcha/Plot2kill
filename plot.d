@@ -29,15 +29,15 @@
  * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS IN THE SOFTWARE.
  */
- 
+
  module plot2kill.plot;
- 
+
  import plot2kill.figure, plot2kill.util, plot2kill.hierarchical;
  import std.random, std.typetuple;
- 
+
  version(dfl) {
     public import plot2kill.dflwrapper;
-} else version(gtk) {
+} else {
     public import plot2kill.gtkwrapper;
 }
 
@@ -57,8 +57,8 @@ protected:
     double rightLim = -double.infinity;
 
     string _legendText;
-    
-    // Hook in case the plot needs to reset its limits after seeing 
+
+    // Hook in case the plot needs to reset its limits after seeing
     // the figure it's about to be drawn to.
     void resetLimits(Figure figure) {}
 
@@ -1777,7 +1777,7 @@ class LineGraph : Plot {
         }
 
         if(_pointSymbol != ' ') {
- 	        addFudgeFactors(this);
+          addFudgeFactors(this);
         }
     }
 
@@ -2081,24 +2081,24 @@ default scatter plot settings.
 */
 class LinearFit : LineGraph {
     private double _alpha, _beta, _cor;
-    
+
     final @property const pure nothrow @safe {
-        /** 
+        /**
         The intercept term of the fit line.
         */
         double alpha() { return _alpha; }
-        
+
         /**
         The slope of the fit line.
         */
         double beta() { return _beta; }
-        
+
         /**
         The correlation between the predictions made by the regression and
         the actual values.
         */
         double cor() { return _cor; }
-        
+
         /**
         The R^2 value of the fit line.
         */
@@ -2115,7 +2115,7 @@ class LinearFit : LineGraph {
     Compute the regression coefficients and create a best-fit line, where
     x is the independent variable and y is the dependent variable.
     lowerLim and upperLim control how far the best-fit line is extended in
-    each direction along the X-axis.  By default the line is extended between 
+    each direction along the X-axis.  By default the line is extended between
     the minimum and maximum values of x.
     */
     static LinearFit opCall(R1, R2)
@@ -2123,21 +2123,21 @@ class LinearFit : LineGraph {
     if(isInputRange!R1 && is(ElementType!R1 : double) &&
        isInputRange!R2 && is(ElementType!R2 : double)
     ) {
-        
+
         static if(isForwardRange!R1) {
             alias x xx;
         } else {
             auto xx = toDoubleArray(x);
         }
-        
+
         static if(isForwardRange!R2) {
             alias y yy;
         } else {
             auto yy = toDoubleArray(y);
         }
-        
+
         import std.numeric;
-        
+
         // This is somewhat inefficient, etc. because all the info has
         // to fit neatly on a scatter plot, so we can't be dealing with
         // millions of points, and because I don't want to add a dependency
@@ -2146,10 +2146,10 @@ class LinearFit : LineGraph {
         immutable yLen = walkLength(yy);
         enforce(xLen == yLen, "x, y must be same length for LinearFit.");
         enforce(xLen > 1, "Need at least two elements for LinearFit.");
-        
-        immutable xMean = reduce!"a + b"(0.0, xx.save) / xLen;       
+
+        immutable xMean = reduce!"a + b"(0.0, xx.save) / xLen;
         immutable yMean = reduce!"a + b"(0.0, yy.save) / yLen;
-    
+
         double xDotX = 0, xDotY = 0, yDotY = 0;
         foreach(xElem, yElem; lockstep(xx.save, yy.save)) {
             immutable xCenter = xElem - xMean;
@@ -2158,32 +2158,32 @@ class LinearFit : LineGraph {
             yDotY += yCenter ^^ 2;
             xDotY += xCenter * yCenter;
         }
-        
+
         auto ret = new LinearFit();
         ret._beta = xDotY / xDotX;
         ret._alpha = yMean - ret._beta * xMean;
-        
+
         ret._cor = xDotY / sqrt(xDotX) / sqrt(yDotY);
-        
+
         if(isNaN(lower) || isNaN(upper)) {
             auto minMaxX = reduce!(min, max)(xx.save);
             lower = minMaxX[0];
             upper = minMaxX[1];
         }
-        
+
         ret.x = [lower, upper];
         ret.y.length = 2;
         ret.y[] = ret.x[] * ret._beta + ret.alpha;
         ret.fixBounds();
-        
+
         return ret;
     }
 }
 
 unittest {
-    auto x = [8, 6, 7, 5, 3, 0, 9];    
+    auto x = [8, 6, 7, 5, 3, 0, 9];
     auto y = [3, 1, 4, 1, 5, 9, 2];
-    
+
     // Make sure regression values are right.
     auto fit = LinearFit(x, y);
     assert(approxEqual(fit.cor, -0.7567996));
@@ -2883,45 +2883,45 @@ private:
     Cluster* clusters;
     immutable int nLeaves;
     string[] _names;
-    
+
     // Make min leaf lines 10% of the difference between max, min distance.
     enum leafLineFactor = 0.1;
     immutable double minLeafLineLength;
-    
-    this(Cluster* clusters) {       
-        this.clusters = clusters; 
+
+    this(Cluster* clusters) {
+        this.clusters = clusters;
         this.leftLim = -0.5;
         int nLeaves = 0;
-        
+
         foreach(leaf; *clusters) {
             _names ~= leaf.name;
             nLeaves++;
         }
-        
+
         this.nLeaves = nLeaves;
-        
+
         double minDist = double.infinity, maxDist = -double.infinity;
         void doDist(Cluster* node) {
             if(node.isLeaf) return;
             minDist = min(node.distance, minDist);
             maxDist = max(node.distance, maxDist);
-            
+
             doDist(node.left);
             doDist(node.right);
         }
-        
+
         doDist(clusters);
-        
+
         this.rightLim = nLeaves - 0.5;
         this.upperLim = maxDist;
-    
+
         auto dummyForm = new Figure();
-    
+
         // Find lower limit by adding in the space taken by the leaf names.
         this.minLeafLineLength = leafLineFactor * (maxDist - minDist);
         this.lowerLim = minDist - minLeafLineLength;
     }
-    
+
 protected:
     override void drawPlot(
         Figure form,
@@ -2932,10 +2932,10 @@ protected:
     ) {
         mixin(toPixels);
         int curLeafIndex = 0;
-        
+
         // TODO:  Make these settings customizable.
         auto pen = form.getPen(getColor(0, 0, 0), 1);
-        
+
         double drawLeaf(double parentDistance) {
             immutable parentDistPixels = toPixelsY(parentDistance);
             immutable lineBottomPixels = toPixelsY(lowerLim);
@@ -2945,12 +2945,12 @@ protected:
                 PlotPoint(xPixels, lineBottomPixels),
                 PlotPoint(xPixels, parentDistPixels)
             );
-            
+
             immutable double ret = curLeafIndex;
             curLeafIndex++;
             return ret;
-        }          
-        
+        }
+
         // Returns:  The center of the just-drawn sub-dendrogram.
         double drawImpl(Cluster* node) {
             double leftCenter, rightCenter;
@@ -2959,59 +2959,59 @@ protected:
             } else {
                 leftCenter = drawImpl(node.left);
             }
-            
+
             if(node.right.isLeaf) {
                 rightCenter = drawLeaf(node.distance);
             } else {
                 rightCenter = drawImpl(node.right);
             }
-            
+
             immutable leftTop = (node.left.isLeaf) ? (node.distance) :
                 node.left.distance;
             immutable rightTop = (node.right.isLeaf) ? (node.distance) :
-                node.right.distance;                
-            
+                node.right.distance;
+
             immutable leftCenterPixels = toPixelsX(leftCenter);
             immutable rightCenterPixels = toPixelsX(rightCenter);
             immutable leftTopPixels = toPixelsY(leftTop);
             immutable rightTopPixels = toPixelsY(rightTop);
             immutable distPixels = toPixelsY(node.distance);
-            
-            form.drawClippedLine(pen, 
+
+            form.drawClippedLine(pen,
                 PlotPoint(leftCenterPixels, leftTopPixels),
-                PlotPoint(leftCenterPixels, distPixels), 
+                PlotPoint(leftCenterPixels, distPixels),
             );
-            
+
             form.drawClippedLine(pen,
                 PlotPoint(leftCenterPixels, distPixels),
                 PlotPoint(rightCenterPixels, distPixels)
             );
-            
+
             form.drawClippedLine(pen,
                 PlotPoint(rightCenterPixels, distPixels),
                 PlotPoint(rightCenterPixels, rightTopPixels)
             );
-            
+
             return 0.5 * leftCenter + 0.5 * rightCenter;
         }
-        
+
         drawImpl(clusters);
     }
-    
+
     protected override void drawLegendSymbol(FigureBase fig, PlotRect where) {
         auto pen = fig.getPen(getColor(0, 0, 0), 1);
         scope(exit) doneWith(pen);
         drawLineLegend(pen, fig, where);
     }
-            
+
 public:
-    /** 
+    /**
     Create a Dendrogram from hierarchically clustered data.
     */
     static Dendrogram opCall(Cluster* clusters) {
         return new Dendrogram(clusters);
     }
-    
+
     /**
     Create a Dendrogram figure with rotated text leaf labels on the X-axis
     tick labels and "Distance" as the Y-axis label.
@@ -3019,20 +3019,20 @@ public:
     override Figure toLabeledFigure() @property {
         auto ret = this.toFigure;
 
-        ret.xTickLabels(iota(nLeaves), _names);    
+        ret.xTickLabels(iota(nLeaves), _names);
         ret.yLabel("Distance");
         ret.rotatedXTick(true);
-        
+
         return ret;
     }
-    
+
     /**
     The names of the leaf nodes, in order from left to right on the plot.
     */
     final const(string)[] leafNames() const pure nothrow {
         return _names;
-    }        
-}     
+    }
+}
 
 private:
 
