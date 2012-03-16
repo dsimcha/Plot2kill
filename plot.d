@@ -37,7 +37,7 @@
  
  version(dfl) {
     public import plot2kill.dflwrapper;
-} else version(gtk) {
+} else {
     public import plot2kill.gtkwrapper;
 }
 
