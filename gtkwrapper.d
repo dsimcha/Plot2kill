@@ -40,7 +40,8 @@ DEALINGS IN THE SOFTWARE.
  */
 module plot2kill.gtkwrapper;
 
-version(gtk) {
+version(dfl) {
+} else {
 
 import plot2kill.util;
 import plot2kill.guiagnosticbase;
