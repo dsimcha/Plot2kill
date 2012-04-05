@@ -197,7 +197,7 @@ private:
 
     void saveImplPixmap
     (string filename, string type, double width, double height) {
-        defaultInit();
+        plot2kill.gtkwrapper.defaultInit();
         int w = roundTo!int(width);
         int h = roundTo!int(height);
 

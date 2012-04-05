@@ -449,7 +449,7 @@ class Subplot : SubplotBase {
 
     ///
     override FigureWidget toWidget() {
-        defaultInit();
+        plot2kill.gtkwrapper.defaultInit();
         return new SubplotWidget(this);
     }
 }
