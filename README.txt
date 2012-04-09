@@ -1,5 +1,8 @@
-Some usage examples can be found in demotest.d.  Unfortunately the ddoc documentation for
-this library doesn't compile due to DMD bug 5704.
+Some usage examples can be found in demotest.d.
+
+Build documentation:
+
+dmd -o- -Dddoc *.d
 
 Build instructions:
 
@@ -18,4 +21,4 @@ dmd -O -inline -release -version=test *.d
 
 or
 
-dmd -O -inline -release -version=dfl -version=test *.d
+dmd -O -inline -release -version=test *.d -version=dfl
