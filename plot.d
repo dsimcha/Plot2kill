@@ -29,13 +29,13 @@
  * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS IN THE SOFTWARE.
  */
- 
- module plot2kill.plot;
- 
- import plot2kill.figure, plot2kill.util, plot2kill.hierarchical;
- import std.random, std.typetuple;
- 
- version(dfl) {
+
+module plot2kill.plot;
+
+import plot2kill.figure, plot2kill.util, plot2kill.hierarchical;
+import std.random, std.typetuple;
+
+version(dfl) {
     public import plot2kill.dflwrapper;
 } else {
     public import plot2kill.gtkwrapper;
