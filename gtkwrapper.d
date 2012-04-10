@@ -1,6 +1,6 @@
 /**
 This file contains the GTK-specific parts of Plot2Kill and is publicly
-imported by plot2kill.figure if compiled with -version=gtk.
+imported by plot2kill.figure if compiled with GtkD.
 
 Note:  The functions that need GTK to be initialized for their use automatically
        call gtk.Main.initCheck() to provide sane default initialization.  This
