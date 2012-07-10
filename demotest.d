@@ -45,6 +45,18 @@ version(dfl) {
 
 void main(string[] args)
 {
+    // Test special-case handling of line graphs with perfectly vertical or
+    // perfectly horizontal lines.
+    Subplot(2, 2).addFigure(
+        Figure(
+            LineGraph([0.0, 3.0], [1.0, 1.0]),
+            LineGraph([1.0, 1.0], [0.0, 2.0])
+        ),
+                            
+        Figure(LineGraph([0.0, 3.0], [1.0, 1.0])),
+        Figure(LineGraph([1.0, 1.0], [0.0, 2.0]))
+    ).showAsMain();
+
     // Test dendrogram.
     {
         auto mat = [[3.0, 1, 4, 1, 5, 9, 2],

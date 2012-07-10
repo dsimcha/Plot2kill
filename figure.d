@@ -663,11 +663,12 @@ public:
         return lower <= num && num <= upper;
     }
 
-    bool clipLine(ref double x1, ref double y1, ref double x2, ref double y2) {
+    bool clipLine(ref double x1, ref double y1, ref double x2, ref double y2) {      
         immutable topPixel = topMargin;
         immutable bottomPixel = this.height - bottomMargin - 1;
         immutable leftPixel = leftMargin + 1;
         immutable rightPixel = this.width - rightMargin;
+
         if(between(x1, leftPixel, rightPixel) &&
            between(x2, leftPixel, rightPixel) &&
            between(y1, topPixel, bottomPixel) &&
@@ -1108,6 +1109,34 @@ public:
 
     /**Draw the plot but don't display it on screen.*/
     override void drawImpl() {
+        // This block of code adds fudge factors if leftLim == rightLim or
+        // lowerLim == upperLim (i.e. perfectly horizontal or vertical lines).
+        // This avoids figures that are infinitely narrow in one direction.
+        // It resets them on exit so that if more stuff is added to this figure,
+        // there are no unanticipated side effects of this kludge.
+        immutable oldLeft = leftLim;
+        immutable oldRight = rightLim;
+        immutable oldUpper = upperLim;
+        immutable oldLower = lowerLim;
+        
+        scope(exit) {
+            leftLim = oldLeft;
+            rightLim = oldRight;
+            upperLim = oldUpper;
+            lowerLim = oldLower;
+        }
+        
+        enum fudgeFactor = 1e-5;
+        if(leftLim == rightLim) {
+            leftLim -= fudgeFactor;
+            rightLim += fudgeFactor;
+        }
+        
+        if(upperLim == lowerLim) {
+            upperLim += fudgeFactor;
+            lowerLim -= fudgeFactor;
+        }
+        
         auto whiteBrush = getBrush(getColor(255, 255, 255));
         fillRectangle(whiteBrush, 0, 0, this.width, this.height);
         doneWith(whiteBrush);

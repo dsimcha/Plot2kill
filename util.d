@@ -79,10 +79,16 @@ unittest {
     assert(approxEqual(toSigFigs(PI, 3), 3.14));
 }
 
+// TODO:  Refactor this messy mixin into a struct.  Unfortunately, though,
+//        this refactoring will have tons of ripple effects in plot.d, which
+//        is why I keep putting it off.
 package enum toPixels = q{
     double toPixelsX(double inUnits) {
         immutable xRange = rightLim - leftLim;
-        assert(xRange > 0);
+        
+        // This handles the case of plots that are infinitely small in one 
+        // direction.  Using <= instead of == to handle rounding error.
+        if(xRange <= 0) return leftMargin;
 
         immutable fract = (inUnits - leftLim) / xRange;
         immutable ret = (fract * plotWidth) + leftMargin;
@@ -91,7 +97,10 @@ package enum toPixels = q{
 
     double toPixelsY(double inUnits) {
         immutable yRange = upperLim - lowerLim;
-        assert(yRange > 0);
+        
+        // This handles the case of plots that are infinitely small in one 
+        // direction.  Using <= instead of == to handle rounding error.
+        if(yRange <= 0) return topMargin;
 
         immutable fract = (upperLim - inUnits) / yRange;
         immutable ret = (fract * plotHeight) + topMargin;
