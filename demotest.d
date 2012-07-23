@@ -1,7 +1,11 @@
-/* These are demos/tests for Plot2Kill.  They serve both as regression tests
- * and as examples of usage.
+/* These are demos/tests for Plot2Kill.  They serve both as tests
+ * and as examples of usage.  Most testing is done here, mostly because
+ * objective, automatically verifiable tests of correctness are hard to come
+ * by for a plotting library, especially if avoiding testing implementation
+ * details is also a goal.  It's much easier to just generate some plots
+ * and see if they look right.
  *
- * Copyright (C) 2010-2011 David Simcha
+ * Copyright (C) 2010-2012 David Simcha
  *
  * License:
  *
@@ -189,9 +193,9 @@ void main(string[] args)
 
     // Test line graphs and histograms on the same plot.
     auto histRand = Histogram(
-        randArray!rNorm(5_000, 0, 1), 100, -5, 5, OutOfBounds.Ignore);
+        randArray!rNorm(5_000, 0, 1), 100, -5, 5, OutOfBounds.ignore);
     histRand.put(
-        Histogram(randArray!rNorm(5_000, 0, 1), 100, -5, 5, OutOfBounds.Ignore)
+        Histogram(randArray!rNorm(5_000, 0, 1), 100, -5, 5, OutOfBounds.ignore)
     );
     histRand.legendText = "Empirical";
 
@@ -213,6 +217,7 @@ void main(string[] args)
     hist.yLabel = "Count";
     hist.saveToFile("foo" ~ libName ~ ".png");
     hist.saveToFile("foo" ~ libName ~ ".bmp");
+    
     hist.showAsMain();
 
     // Test error bars.

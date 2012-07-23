@@ -1,7 +1,7 @@
 /**This file contains all of the plots types in Plot2kill, which can be
  * drawn on screen using plot2kill.figure.Figure.
  *
- * Copyright (C) 2010-2011 David Simcha
+ * Copyright (C) 2010-2012 David Simcha
  *
  * License:
  *
@@ -654,19 +654,27 @@ private BarPlot[] groupStackImpl(R1, R2, R3, R4)(
  */
 enum OutOfBounds {
      /** Throw throws an exception.*/
-    Throw,
+    throwException,
 
     /**Ignore simply skips the number.*/
-    Ignore
+    ignore,
+    
+    // For backwards compatibility, will eventually be removed.
+    Throw = throwException,
+    Ignore=ignore
 }
 
 /**Controls whether a histogram plots counts or probability.*/
 enum HistType {
     /// The Y-axis should be counts.
-    Counts,
+    counts,
 
     /// The Y-axis should be probabilities.
-    Probability
+    probability,
+    
+    // For backwards compatibility, will eventually be removed.
+    Probability = probability,
+    Counts = counts
 }
 
 /**A class for plotting regular (equal-width) histograms.*/
@@ -802,7 +810,7 @@ class Histogram : Plot {
         uint nBin,
         double leftLim,
         double rightLim,
-        OutOfBounds outOfBoundsBehavior = OutOfBounds.Throw
+        OutOfBounds outOfBoundsBehavior = OutOfBounds.throwException
     ) if(isInputRange!R && is(ElementType!R : double)) {
         auto ret = Histogram(nBin, leftLim, rightLim, outOfBoundsBehavior);
 
@@ -991,7 +999,7 @@ class FrequencyHistogram : Plot {
         immutable totalWidth = rightLim - leftLim;
         foreach(width; binWidths) {
             scope(exit) xStart += width;
-            immutable height = totalWidth / width / elemsPerBin;
+            immutable height = 1.0 / (binWidths.length * width);
             immutable leftPixels = toPixelsX(xStart);
             immutable rightPixels = toPixelsX(xStart + width);
             immutable widthPixels = rightPixels - leftPixels;
@@ -1073,7 +1081,7 @@ class FrequencyHistogram : Plot {
         ret.binWidths = binWidths;
         ret.elemsPerBin = elemsPerBin;
         immutable totalWidth = ret.rightLim - ret.leftLim;
-        ret.upperLim = totalWidth / reduce!min(binWidths) / elemsPerBin;
+        ret.upperLim = 1.0 / (binWidths.length * reduce!min(binWidths));
         return ret;
     }
 
@@ -1097,7 +1105,7 @@ class UniqueHistogram : BarPlot {
     /**The total count of this histogram.*/
     immutable uint nElem;
 
-    private HistType countsOrProbs = HistType.Counts;
+    private HistType countsOrProbs = HistType.counts;
 
     private this(double[] x, double[] y, double width, uint nElem) {
         this.nElem = nElem;
@@ -1157,7 +1165,7 @@ class UniqueHistogram : BarPlot {
         }
 
         countsOrProbs = newType;
-    }
+    }  
 }
 
 /**Class for drawing a heat map.*/
