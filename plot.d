@@ -2031,13 +2031,13 @@ class LineGraph : Plot {
             ret.x.length, "Length of lowerErrors must equal number of points.");
 
         if(ret.lowerErrors.length == 0 && ret.upperErrors.length == 0) {
-            sort!"a.at!0 < b.at!0"(zip(ret.x, ret.y));
+            sort!"a[0] < b[0]"(zip(ret.x, ret.y));
         } else if(ret.lowerErrors.length == 0) {
-            sort!"a.at!0 < b.at!0"(zip(ret.x, ret.y, ret.upperErrors));
+            sort!"a[0] < b[0]"(zip(ret.x, ret.y, ret.upperErrors));
         } else if(ret.upperErrors.length == 0) {
-            sort!"a.at!0 < b.at!0"(zip(ret.x, ret.y, ret.lowerErrors));
+            sort!"a[0] < b[0]"(zip(ret.x, ret.y, ret.lowerErrors));
         } else {
-            sort!"a.at!0 < b.at!0"(
+            sort!"a[0] < b[0]"(
                 zip(ret.x, ret.y, ret.lowerErrors, ret.upperErrors));
         }
 
@@ -2207,7 +2207,7 @@ private void constructXYGraph(T, R1, R2)(R1 x, R2 y, T ret) {
     enforce(ret.x.length == ret.y.length,
         "x, y must have same length for line/scatter graph.");
 
-    sort!"a.at!0 < b.at!0"(zip(ret.x, ret.y));
+    sort!"a[0] < b[0]"(zip(ret.x, ret.y));
     fixXYGraphBounds(ret);
 }
 
