@@ -892,10 +892,10 @@ private class LabelDialog : Dialog {
         content.add(yLabelBox);
 
         this.addButtons([StockID.OK, StockID.CANCEL],
-            [GtkResponseType.GTK_RESPONSE_OK,
-             GtkResponseType.GTK_RESPONSE_CANCEL]
+            [GtkResponseType.OK,
+             GtkResponseType.CANCEL]
         );
-        this.setDefaultResponse(GtkResponseType.GTK_RESPONSE_OK);
+        this.setDefaultResponse(GtkResponseType.OK);
         this.setResizable(0);
     }
 }
@@ -940,10 +940,10 @@ private class ZoomDialog : Dialog {
         content.add(topBox);
 
         this.addButtons([StockID.OK, StockID.CANCEL],
-            [GtkResponseType.GTK_RESPONSE_OK,
-             GtkResponseType.GTK_RESPONSE_CANCEL]
+            [GtkResponseType.OK,
+             GtkResponseType.CANCEL]
         );
-        this.setDefaultResponse(GtkResponseType.GTK_RESPONSE_OK);
+        this.setDefaultResponse(GtkResponseType.OK);
         this.addButtons(["Default"], [cast(GtkResponseType) 1]);
         this.setResizable(0);
     }
@@ -1007,10 +1007,10 @@ private class LegendDialog : Dialog {
         }
 
         this.addButtons([StockID.OK, StockID.CANCEL],
-            [GtkResponseType.GTK_RESPONSE_OK,
-             GtkResponseType.GTK_RESPONSE_CANCEL]
+            [GtkResponseType.OK,
+             GtkResponseType.CANCEL]
         );
-        this.setDefaultResponse(GtkResponseType.GTK_RESPONSE_OK);
+        this.setDefaultResponse(GtkResponseType.OK);
         this.setResizable(0);
     }
 }
@@ -1096,10 +1096,10 @@ class TickDialog(char xy) : Dialog {
         content.add(checkHbox);
 
         this.addButtons([StockID.OK, StockID.CANCEL],
-            [GtkResponseType.GTK_RESPONSE_OK,
-             GtkResponseType.GTK_RESPONSE_CANCEL]
+            [GtkResponseType.OK,
+             GtkResponseType.CANCEL]
         );
-        this.setDefaultResponse(GtkResponseType.GTK_RESPONSE_OK);
+        this.setDefaultResponse(GtkResponseType.OK);
         this.addButtons(["Default"], [cast(GtkResponseType) 1]);
         this.setResizable(0);
     }
@@ -1197,7 +1197,7 @@ if(is(Base == gtk.Window.Window) || is(Base == gtk.MainWindow.MainWindow)) {
             dialog.setFontName(text(oldFont.name, ' ', oldFont.size));
 
             void doChanges(int responseID, Dialog d) {
-                if(responseID != GtkResponseType.GTK_RESPONSE_OK) {
+                if(responseID != GtkResponseType.OK) {
                     return;
                 }
 
@@ -1236,7 +1236,7 @@ if(is(Base == gtk.Window.Window) || is(Base == gtk.MainWindow.MainWindow)) {
             auto dialog = new TickDialog!xy(fig);
 
             void changeTicks(int responseID, Dialog dummy) {
-                if(responseID == GtkResponseType.GTK_RESPONSE_CANCEL) {
+                if(responseID == GtkResponseType.CANCEL) {
                     dialog.destroy();
                     return;
                 }
@@ -1321,7 +1321,7 @@ if(is(Base == gtk.Window.Window) || is(Base == gtk.MainWindow.MainWindow)) {
             auto dialog = new LegendDialog(fig);
 
             void changeLegend(int responseID, Dialog dummy) {
-                if(responseID != GtkResponseType.GTK_RESPONSE_OK) {
+                if(responseID != GtkResponseType.OK) {
                     return;
                 }
 
@@ -1396,7 +1396,7 @@ if(is(Base == gtk.Window.Window) || is(Base == gtk.MainWindow.MainWindow)) {
 
         // Change labels in response to a label dialog ok.
         void changeLabels(int responseID, Dialog dialog) {
-            if(responseID != GtkResponseType.GTK_RESPONSE_OK) {
+            if(responseID != GtkResponseType.OK) {
                 dialog.destroy();
                 return;
             }
@@ -1443,7 +1443,7 @@ if(is(Base == gtk.Window.Window) || is(Base == gtk.MainWindow.MainWindow)) {
 
             if(responseID == 1) {
                 fig.defaultZoom();
-            } else if(responseID == GtkResponseType.GTK_RESPONSE_OK) {
+            } else if(responseID == GtkResponseType.OK) {
                 double newXMin, newYMin, newXMax, newYMax;
                 try {
                     newXMin = to!double(zdialog.leftEntry.getText().strip());
@@ -1480,7 +1480,7 @@ if(is(Base == gtk.Window.Window) || is(Base == gtk.MainWindow.MainWindow)) {
         }
 
         void closeError(int response, Dialog d) {
-            enforce(response == GtkResponseType.GTK_RESPONSE_CLOSE);
+            enforce(response == GtkResponseType.CLOSE);
             d.destroy();
         }
 
@@ -1525,7 +1525,7 @@ if(is(Base == gtk.Window.Window) || is(Base == gtk.MainWindow.MainWindow)) {
             auto fc = cast(FileSelection) d;
             assert(fc);
 
-            if(response != GtkResponseType.GTK_RESPONSE_OK) {
+            if(response != GtkResponseType.OK) {
                 d.destroy();
                 return;
             }
@@ -1557,7 +1557,7 @@ if(is(Base == gtk.Window.Window) || is(Base == gtk.MainWindow.MainWindow)) {
             auto fc = cast(FileChooserDialog) d;
             assert(fc);
 
-            if(response != GtkResponseType.GTK_RESPONSE_OK) {
+            if(response != GtkResponseType.OK) {
                 d.destroy();
                 return;
             }
